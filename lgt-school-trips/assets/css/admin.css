@@ -14,3 +14,16 @@
 .lgt-app-admin { margin-top: 16px; }
 .lgt-wrap .description { color: #646970; font-size: 12px; }
 @media (max-width: 782px) { .lgt-wrap .lgt-form-grid { grid-template-columns: 1fr; } }
+
+.lgt-wrap .lgt-grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0 20px; }
+.lgt-wrap .lgt-grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin: 6px 0 14px; }
+.lgt-wrap .lgt-grid2 input.regular-text, .lgt-wrap .lgt-grid2 input[type=date] { width: 100%; }
+.lgt-wrap .lgt-check-card { display: block; border: 1px solid #c3c4c7; border-radius: 8px; padding: 12px 14px; background: #fff; cursor: pointer; font-weight: 600; }
+.lgt-wrap .lgt-check-card small { font-weight: normal; color: #646970; }
+.lgt-wrap .lgt-check-card:has(input:checked) { border-color: #0f3b66; background: #eef4fb; }
+.lgt-wrap .lgt-status-waiting { background: #fef3c7; color: #92400e; }
+.lgt-wrap .lgt-status-progress { background: #e0ecf8; color: #0f3b66; }
+.lgt-wrap .lgt-status-submitted { background: #dcfce7; color: #15803d; }
+.lgt-wrap .lgt-alert { padding: 10px 14px; border-radius: 8px; border: 1px solid transparent; }
+.lgt-wrap .lgt-alert-info { background: #eff6ff; border-color: #bfdbfe; color: #1e3a8a; }
+@media (max-width: 782px) { .lgt-wrap .lgt-grid2, .lgt-wrap .lgt-grid3 { grid-template-columns: 1fr; } }

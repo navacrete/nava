@@ -62,6 +62,8 @@ class LGT_Admin {
 		}
 		$msgs = array(
 			'saved'      => array( 'success', 'Οι αλλαγές αποθηκεύτηκαν.' ),
+			'link_sent'  => array( 'success', 'Η εκδρομή δημιουργήθηκε και ο σύνδεσμος στάλθηκε στο σχολείο. Τώρα περιμένετε το σχολείο να περάσει τα ονόματα. Θα λάβετε email με Excel/PDF όταν πατήσουν «Υποβολή».' ),
+			'link_fail'  => array( 'error', 'Η εκδρομή δημιουργήθηκε αλλά το email με τον σύνδεσμο δεν στάλθηκε. Αντιγράψτε τον σύνδεσμο από την καρτέλα «Σύνοψη» ή ελέγξτε τις ρυθμίσεις email.' ),
 			'deleted'    => array( 'success', 'Η εκδρομή διαγράφηκε.' ),
 			'settings'   => array( 'success', 'Οι ρυθμίσεις αποθηκεύτηκαν.' ),
 			'cron'       => array( 'success', 'Οι υπενθυμίσεις/ενημερώσεις εκτελέστηκαν.' ),
@@ -88,6 +90,27 @@ class LGT_Admin {
 			'archived' => 'Αρχείο',
 		);
 		return $map[ $status ] ?? $status;
+	}
+
+	/** Human-readable progress for the list screen. */
+	public static function progress_label( array $t, $count ) {
+		if ( 'draft' === $t['status'] ) {
+			return array( 'draft', 'Πρόχειρο – δεν έχει σταλεί σύνδεσμος' );
+		}
+		if ( 'archived' === $t['status'] ) {
+			return array( 'archived', 'Αρχείο' );
+		}
+		if ( 'closed' === $t['status'] ) {
+			return array( 'closed', 'Κλειστή – οριστική λίστα' );
+		}
+		if ( $t['submitted_at'] ) {
+			$newer = $t['data_updated_at'] && strtotime( $t['data_updated_at'] ) > strtotime( $t['submitted_at'] );
+			return array( 'submitted', $newer ? 'Υποβλήθηκε – νέες αλλαγές από τότε' : 'Υποβλήθηκε από το σχολείο ✓' );
+		}
+		if ( $count ) {
+			return array( 'progress', 'Το σχολείο καταχωρεί (' . (int) $count . ' άτομα)' );
+		}
+		return array( 'waiting', 'Περιμένουμε το σχολείο' );
 	}
 
 	/* ------------------------------------------------------------------ */
@@ -117,8 +140,9 @@ class LGT_Admin {
 		?>
 		<div class="wrap lgt-wrap">
 			<h1 class="wp-heading-inline">Σχολικές Εκδρομές</h1>
-			<a href="<?php echo esc_url( admin_url( 'admin.php?page=lgt-trip' ) ); ?>" class="page-title-action">Νέα εκδρομή</a>
+			<a href="<?php echo esc_url( admin_url( 'admin.php?page=lgt-trip' ) ); ?>" class="page-title-action">+ Νέα εκδρομή</a>
 			<hr class="wp-header-end">
+			<p class="lgt-muted" style="margin:6px 0 12px">1. Δημιουργείτε την εκδρομή → 2. Το σχολείο λαμβάνει σύνδεσμο και περνά τα ονόματα → 3. Λαμβάνετε Excel/PDF με email. Εδώ βλέπετε πού βρίσκεται κάθε σχολείο.</p>
 			<ul class="subsubsub">
 				<?php
 				$tabs = array( '' => 'Ενεργές', 'open' => 'Ανοιχτές', 'closed' => 'Κλειστές', 'draft' => 'Πρόχειρα', 'archived' => 'Αρχείο' );
@@ -144,7 +168,7 @@ class LGT_Admin {
 						<th>Άτομα</th>
 						<th>Κατάσταση</th>
 						<th>Τελευταία αλλαγή</th>
-						<th style="width:170px">Ενέργειες</th>
+						<th style="width:220px">Ενέργειες</th>
 					</tr>
 				</thead>
 				<tbody>
@@ -174,11 +198,15 @@ class LGT_Admin {
 							<?php echo $t['has_flight'] ? '<span class="lgt-chip" title="Αεροπλάνο">✈</span>' : ''; ?>
 						</td>
 						<td><?php echo (int) ( $counts[ $t['id'] ] ?? 0 ); ?></td>
-						<td><span class="lgt-status lgt-status-<?php echo esc_attr( $t['status'] ); ?>"><?php echo esc_html( self::status_label( $t['status'] ) ); ?></span></td>
+						<?php list( $pcls, $plabel ) = self::progress_label( $t, $counts[ $t['id'] ] ?? 0 ); ?>
+						<td><span class="lgt-status lgt-status-<?php echo esc_attr( $pcls ); ?>"><?php echo esc_html( $plabel ); ?></span></td>
 						<td class="lgt-muted"><?php echo $t['data_updated_at'] ? esc_html( date_i18n( 'd/m/Y H:i', strtotime( $t['data_updated_at'] ) ) ) : '—'; ?><?php echo $t['submitted_at'] ? '<br><small>Υποβολή: ' . esc_html( date_i18n( 'd/m/Y H:i', strtotime( $t['submitted_at'] ) ) ) . '</small>' : ''; ?></td>
 						<td>
-							<a class="button button-small" href="<?php echo esc_url( $manage ); ?>">Λίστες</a>
-							<a class="button button-small" href="<?php echo esc_url( $edit ); ?>">Στοιχεία</a>
+							<a class="button button-small" href="<?php echo esc_url( $manage ); ?>">Άνοιγμα</a>
+							<?php if ( ! empty( $counts[ $t['id'] ] ) ) : ?>
+								<a class="button button-small" title="Λήψη Excel" href="<?php echo esc_url( add_query_arg( array( 'action' => 'lgt_download', 'trip' => $t['id'], 'format' => 'xlsx', 'list' => 'all', '_wpnonce' => wp_create_nonce( 'lgt_download_' . $t['id'] ) ), admin_url( 'admin-post.php' ) ) ); ?>">Excel</a>
+								<a class="button button-small" title="Λήψη PDF" href="<?php echo esc_url( add_query_arg( array( 'action' => 'lgt_download', 'trip' => $t['id'], 'format' => 'pdf', 'list' => 'all', '_wpnonce' => wp_create_nonce( 'lgt_download_' . $t['id'] ) ), admin_url( 'admin-post.php' ) ) ); ?>">PDF</a>
+							<?php endif; ?>
 							<?php if ( $t['token'] && 'open' === $t['status'] ) : ?>
 								<button type="button" class="button button-small lgt-copy" data-copy="<?php echo esc_attr( LGT_Portal::url( $t ) ); ?>" title="Αντιγραφή συνδέσμου">🔗</button>
 							<?php endif; ?>
@@ -270,7 +298,7 @@ class LGT_Admin {
 	}
 
 	private static function render_trip_form( $trip ) {
-		$t = $trip ? $trip : array_merge( LGT_DB::trip_defaults(), array( 'id' => 0, 'room_types' => LGT_Settings::default_room_types(), 'cabin_types' => LGT_Settings::default_cabin_types(), 'meta' => array() ) );
+		$t = $trip ? $trip : array_merge( LGT_DB::trip_defaults(), array( 'id' => 0, 'meta' => array() ) );
 		if ( $trip ) {
 			$t['room_types']  = LGT_Settings::sanitize_types( $trip['room_types'], LGT_Settings::default_room_types() );
 			$t['cabin_types'] = LGT_Settings::sanitize_types( $trip['cabin_types'], LGT_Settings::default_cabin_types() );
@@ -278,64 +306,71 @@ class LGT_Admin {
 			$t['room_types']  = LGT_Settings::sanitize_types( LGT_Settings::get( 'default_room_types' ), LGT_Settings::default_room_types() );
 			$t['cabin_types'] = LGT_Settings::sanitize_types( LGT_Settings::get( 'default_cabin_types' ), LGT_Settings::default_cabin_types() );
 		}
+		$is_new = ! $trip;
 		?>
-		<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="lgt-form">
+		<?php if ( $is_new ) : ?>
+			<div class="lgt-alert lgt-alert-info" style="max-width:900px;margin-top:12px">
+				<strong>Πώς δουλεύει:</strong> συμπληρώνετε τα βασικά, πατάτε «Δημιουργία & αποστολή» και το σχολείο λαμβάνει με email τον σύνδεσμο.
+				Το σχολείο περνά τα ονόματα, τα δωμάτια και τις καμπίνες. Εσείς λαμβάνετε αυτόματα Excel &amp; PDF όταν πατήσουν «Υποβολή».
+			</div>
+		<?php endif; ?>
+		<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" class="lgt-form lgt-form-simple">
 			<?php wp_nonce_field( 'lgt_save_trip' ); ?>
 			<input type="hidden" name="action" value="lgt_save_trip">
 			<input type="hidden" name="trip_id" value="<?php echo (int) $t['id']; ?>">
-			<div class="lgt-form-grid">
-				<div class="lgt-card">
-					<h2>Βασικά στοιχεία</h2>
-					<p><label>Τίτλος εκδρομής *<br><input type="text" name="title" required class="regular-text" value="<?php echo esc_attr( $t['title'] ); ?>" placeholder="π.χ. 5ήμερη εκδρομή Γ' Λυκείου – Ρόδος"></label></p>
+			<div class="lgt-card" style="max-width:900px">
+				<h2>Βασικά στοιχεία</h2>
+				<div class="lgt-grid2">
 					<p><label>Σχολείο *<br><input type="text" name="school_name" required class="regular-text" value="<?php echo esc_attr( $t['school_name'] ); ?>" placeholder="π.χ. 3ο ΓΕΛ Αθηνών"></label></p>
-					<p><label>Προορισμός<br><input type="text" name="destination" class="regular-text" value="<?php echo esc_attr( $t['destination'] ); ?>"></label></p>
-					<p class="lgt-inline">
-						<label>Αναχώρηση<br><input type="date" name="departure_date" value="<?php echo esc_attr( (string) $t['departure_date'] ); ?>"></label>
-						<label>Επιστροφή<br><input type="date" name="return_date" value="<?php echo esc_attr( (string) $t['return_date'] ); ?>"></label>
-					</p>
-					<p><label>Κατάσταση<br>
-						<select name="status">
-							<?php foreach ( array( 'draft', 'open', 'closed', 'archived' ) as $s ) : ?>
-								<option value="<?php echo esc_attr( $s ); ?>" <?php selected( $t['status'], $s ); ?>><?php echo esc_html( self::status_label( $s ) ); ?></option>
-							<?php endforeach; ?>
-						</select></label>
-						<span class="description">«Ανοιχτή» = το σχολείο μπορεί να καταχωρεί. «Κλειστή» = μόνο προβολή. Ο σύνδεσμος δεν λήγει ποτέ αυτόματα.</span>
-					</p>
-				</div>
-				<div class="lgt-card">
-					<h2>Επικοινωνία σχολείου</h2>
-					<p><label>Υπεύθυνος καθηγητής<br><input type="text" name="contact_name" class="regular-text" value="<?php echo esc_attr( $t['contact_name'] ); ?>"></label></p>
-					<p><label>Email σχολείου / υπευθύνου *<br><input type="email" name="school_email" class="regular-text" value="<?php echo esc_attr( $t['school_email'] ); ?>"></label><br><span class="description">Εδώ στέλνεται ο σύνδεσμος, οι επιβεβαιώσεις και οι υπενθυμίσεις.</span></p>
-					<p><label>Τηλέφωνο<br><input type="text" name="school_phone" class="regular-text" value="<?php echo esc_attr( $t['school_phone'] ); ?>"></label></p>
-					<p><label>Επιπλέον emails για υπενθυμίσεις<br><textarea name="extra_emails" rows="2" class="large-text" placeholder="συνοδοί, ξενοδοχείο, οδηγός… (ένα ανά γραμμή ή με κόμμα)"><?php echo esc_textarea( (string) $t['extra_emails'] ); ?></textarea></label></p>
-					<p><label>Κωδικός πρόσβασης συνδέσμου (προαιρετικά)<br><input type="text" name="access_code" class="regular-text" value="<?php echo esc_attr( $t['access_code'] ); ?>" placeholder="κενό = χωρίς κωδικό"></label></p>
-				</div>
-				<div class="lgt-card">
-					<h2>Μεταφορά & διαμονή</h2>
-					<p><label><input type="checkbox" name="has_hotel" value="1" <?php checked( $t['has_hotel'] ); ?>> 🏨 Ξενοδοχείο (rooming list)</label></p>
+					<p><label>Email σχολείου / υπευθύνου *<br><input type="email" name="school_email" required class="regular-text" value="<?php echo esc_attr( $t['school_email'] ); ?>" placeholder="εδώ στέλνεται ο σύνδεσμος"></label></p>
+					<p><label>Προορισμός *<br><input type="text" name="destination" required class="regular-text" value="<?php echo esc_attr( $t['destination'] ); ?>" placeholder="π.χ. Ρόδος"></label></p>
 					<p><label>Ξενοδοχείο<br><input type="text" name="hotel_name" class="regular-text" value="<?php echo esc_attr( $t['hotel_name'] ); ?>"></label></p>
-					<p><label>Σημειώσεις ξενοδοχείου (εμφανίζονται στο σχολείο)<br><textarea name="hotel_notes" rows="2" class="large-text"><?php echo esc_textarea( (string) $t['hotel_notes'] ); ?></textarea></label></p>
+					<p><label>Αναχώρηση *<br><input type="date" name="departure_date" required value="<?php echo esc_attr( (string) $t['departure_date'] ); ?>"></label></p>
+					<p><label>Επιστροφή<br><input type="date" name="return_date" value="<?php echo esc_attr( (string) $t['return_date'] ); ?>"></label></p>
+				</div>
+				<p><strong>Τι περιλαμβάνει η εκδρομή:</strong></p>
+				<div class="lgt-grid3">
+					<label class="lgt-check-card"><input type="checkbox" name="has_hotel" value="1" <?php checked( $t['has_hotel'] ); ?>> 🏨 Ξενοδοχείο<br><small>rooming list</small></label>
+					<label class="lgt-check-card"><input type="checkbox" name="has_ferry" value="1" <?php checked( $t['has_ferry'] ); ?>> ⛴ Πλοίο<br><small>καμπίνες + λίστα επιβατών</small></label>
+					<label class="lgt-check-card"><input type="checkbox" name="has_flight" value="1" <?php checked( $t['has_flight'] ); ?>> ✈ Αεροπλάνο<br><small>λίστα με ημ. γέννησης &amp; έγγραφα</small></label>
+				</div>
+				<div class="lgt-grid2">
+					<p><label>Ακτοπλοϊκή εταιρεία / δρομολόγιο<br><input type="text" name="ferry_company" class="regular-text" value="<?php echo esc_attr( $t['ferry_company'] ); ?>" placeholder="π.χ. Blue Star – Πειραιάς → Ρόδος"></label></p>
+					<p><label>Αεροπορική εταιρεία / πτήσεις<br><input type="text" name="airline" class="regular-text" value="<?php echo esc_attr( $t['airline'] ); ?>" placeholder="π.χ. Aegean A3 302"></label></p>
+				</div>
+				<?php if ( $is_new ) : ?>
+					<p style="margin-top:14px"><label><input type="checkbox" name="send_link" value="1" checked> <strong>Αποστολή του συνδέσμου στο σχολείο με email αμέσως</strong></label></p>
+				<?php endif; ?>
+				<details style="margin-top:10px">
+					<summary style="cursor:pointer;color:#0f3b66;font-weight:600">Προαιρετικά (τίτλος, υπεύθυνος, σημειώσεις, τύποι δωματίων, κωδικός πρόσβασης)</summary>
+					<div class="lgt-grid2" style="margin-top:10px">
+						<p><label>Τίτλος εκδρομής<br><input type="text" name="title" class="regular-text" value="<?php echo esc_attr( $t['title'] ); ?>" placeholder="αν μείνει κενό συμπληρώνεται αυτόματα"></label></p>
+						<p><label>Υπεύθυνος καθηγητής<br><input type="text" name="contact_name" class="regular-text" value="<?php echo esc_attr( $t['contact_name'] ); ?>"></label></p>
+						<p><label>Τηλέφωνο σχολείου<br><input type="text" name="school_phone" class="regular-text" value="<?php echo esc_attr( $t['school_phone'] ); ?>"></label></p>
+						<p><label>Κωδικός πρόσβασης συνδέσμου<br><input type="text" name="access_code" class="regular-text" value="<?php echo esc_attr( $t['access_code'] ); ?>" placeholder="κενό = χωρίς κωδικό"></label></p>
+						<?php if ( ! $is_new ) : ?>
+						<p><label>Κατάσταση<br>
+							<select name="status">
+								<?php foreach ( array( 'draft', 'open', 'closed', 'archived' ) as $s ) : ?>
+									<option value="<?php echo esc_attr( $s ); ?>" <?php selected( $t['status'], $s ); ?>><?php echo esc_html( self::status_label( $s ) ); ?></option>
+								<?php endforeach; ?>
+							</select></label></p>
+						<?php endif; ?>
+					</div>
+					<p><label>Επιπλέον emails για υπενθυμίσεις (συνοδοί, ξενοδοχείο…)<br><textarea name="extra_emails" rows="2" class="large-text"><?php echo esc_textarea( (string) $t['extra_emails'] ); ?></textarea></label></p>
+					<p><label>Μήνυμα προς το σχολείο (φαίνεται στην πλατφόρμα και στα emails)<br><textarea name="notes_school" rows="3" class="large-text"><?php echo esc_textarea( (string) $t['notes_school'] ); ?></textarea></label></p>
+					<p><label>Σημειώσεις ξενοδοχείου προς το σχολείο<br><textarea name="hotel_notes" rows="2" class="large-text"><?php echo esc_textarea( (string) $t['hotel_notes'] ); ?></textarea></label></p>
+					<p><label>Σημειώσεις πλοίου προς το σχολείο<br><textarea name="ferry_notes" rows="2" class="large-text"><?php echo esc_textarea( (string) $t['ferry_notes'] ); ?></textarea></label></p>
+					<p><label>Σημειώσεις πτήσης προς το σχολείο<br><textarea name="flight_notes" rows="2" class="large-text"><?php echo esc_textarea( (string) $t['flight_notes'] ); ?></textarea></label></p>
+					<p><label>Εσωτερικές σημειώσεις (μόνο γραφείο)<br><textarea name="notes_internal" rows="2" class="large-text"><?php echo esc_textarea( (string) $t['notes_internal'] ); ?></textarea></label></p>
 					<h3>Τύποι δωματίων που διαθέτει το ξενοδοχείο</h3>
 					<?php self::render_types_editor( 'room_types', $t['room_types'] ); ?>
-					<hr>
-					<p><label><input type="checkbox" name="has_ferry" value="1" <?php checked( $t['has_ferry'] ); ?>> ⛴ Ακτοπλοϊκό (καμπίνες + manifest)</label></p>
-					<p><label>Ακτοπλοϊκή εταιρεία / δρομολόγιο<br><input type="text" name="ferry_company" class="regular-text" value="<?php echo esc_attr( $t['ferry_company'] ); ?>" placeholder="π.χ. Blue Star – Πειραιάς → Ρόδος 18:00"></label></p>
-					<p><label>Σημειώσεις πλοίου (εμφανίζονται στο σχολείο)<br><textarea name="ferry_notes" rows="2" class="large-text"><?php echo esc_textarea( (string) $t['ferry_notes'] ); ?></textarea></label></p>
 					<h3>Τύποι καμπινών</h3>
 					<?php self::render_types_editor( 'cabin_types', $t['cabin_types'] ); ?>
-					<hr>
-					<p><label><input type="checkbox" name="has_flight" value="1" <?php checked( $t['has_flight'] ); ?>> ✈ Αεροπορικό (λίστα επιβατών με ημ. γέννησης & έγγραφα)</label></p>
-					<p><label>Αεροπορική εταιρεία / πτήσεις<br><input type="text" name="airline" class="regular-text" value="<?php echo esc_attr( $t['airline'] ); ?>" placeholder="π.χ. Aegean A3 302 ATH-RHO 07:10"></label></p>
-					<p><label>Σημειώσεις πτήσης (εμφανίζονται στο σχολείο)<br><textarea name="flight_notes" rows="2" class="large-text"><?php echo esc_textarea( (string) $t['flight_notes'] ); ?></textarea></label></p>
-				</div>
-				<div class="lgt-card">
-					<h2>Σημειώσεις</h2>
-					<p><label>Μήνυμα προς το σχολείο (εμφανίζεται στην πλατφόρμα και στα emails)<br><textarea name="notes_school" rows="4" class="large-text"><?php echo esc_textarea( (string) $t['notes_school'] ); ?></textarea></label></p>
-					<p><label>Εσωτερικές σημειώσεις (μόνο για το γραφείο)<br><textarea name="notes_internal" rows="4" class="large-text"><?php echo esc_textarea( (string) $t['notes_internal'] ); ?></textarea></label></p>
-				</div>
+				</details>
 			</div>
 			<p class="submit">
-				<button type="submit" class="button button-primary button-large"><?php echo $trip ? 'Αποθήκευση' : 'Δημιουργία εκδρομής'; ?></button>
+				<button type="submit" class="button button-primary button-large"><?php echo $is_new ? '✔ Δημιουργία & αποστολή στο σχολείο' : 'Αποθήκευση'; ?></button>
 				<?php if ( $trip ) : ?>
 					<a class="button button-large" href="<?php echo esc_url( admin_url( 'admin.php?page=lgt-trip&id=' . $trip['id'] . '&tab=manage' ) ); ?>">Μετάβαση στις λίστες →</a>
 					<a class="button button-link-delete lgt-confirm" style="margin-left:20px" data-confirm="Οριστική διαγραφή της εκδρομής και όλων των στοιχείων;" href="<?php echo esc_url( wp_nonce_url( admin_url( 'admin-post.php?action=lgt_delete_trip&trip_id=' . $trip['id'] ), 'lgt_delete_trip_' . $trip['id'] ) ); ?>">Διαγραφή εκδρομής</a>
@@ -417,7 +452,7 @@ class LGT_Admin {
 			'destination'    => sanitize_text_field( $post['destination'] ?? '' ),
 			'departure_date' => LGT_DB::clean_date( $post['departure_date'] ?? '' ),
 			'return_date'    => LGT_DB::clean_date( $post['return_date'] ?? '' ),
-			'status'         => in_array( $post['status'] ?? 'draft', array( 'draft', 'open', 'closed', 'archived' ), true ) ? $post['status'] : 'draft',
+			'status'         => in_array( $post['status'] ?? 'open', array( 'draft', 'open', 'closed', 'archived' ), true ) ? ( $post['status'] ?? 'open' ) : 'open',
 			'contact_name'   => sanitize_text_field( $post['contact_name'] ?? '' ),
 			'school_email'   => sanitize_email( $post['school_email'] ?? '' ),
 			'school_phone'   => sanitize_text_field( $post['school_phone'] ?? '' ),
@@ -437,20 +472,33 @@ class LGT_Admin {
 			'room_types'     => LGT_Settings::sanitize_types( $post['room_types'] ?? array(), LGT_Settings::default_room_types() ),
 			'cabin_types'    => LGT_Settings::sanitize_types( $post['cabin_types'] ?? array(), LGT_Settings::default_cabin_types() ),
 		);
+		if ( '' === $data['title'] ) {
+			$data['title'] = trim( 'Εκδρομή ' . $data['destination'] . ( $data['departure_date'] ? ' ' . LGT_Exporter::fmt_date( $data['departure_date'] ) : '' ) );
+		}
+		if ( ! $data['has_hotel'] && ! $data['has_ferry'] && ! $data['has_flight'] ) {
+			$data['has_hotel'] = 1;
+		}
 		if ( 'open' === $data['status'] ) {
 			$existing = $id ? LGT_DB::get_trip( $id ) : null;
 			if ( ! $existing || ! $existing['token'] ) {
 				$data['token'] = LGT_DB::generate_token();
 			}
 		}
+		$msg = 'saved';
 		if ( $id ) {
 			LGT_DB::update_trip( $id, $data );
 			LGT_DB::log( $id, 'admin', 'trip_update', 'Φόρμα στοιχείων' );
 		} else {
 			$id = LGT_DB::insert_trip( $data );
 			LGT_DB::log( $id, 'admin', 'trip_create' );
+			if ( ! empty( $post['send_link'] ) && $data['school_email'] ) {
+				$trip = LGT_DB::get_trip( $id );
+				$ok   = LGT_Mailer::send_link( $trip );
+				LGT_DB::log( $id, 'admin', 'send_link', $ok ? $trip['school_email'] : 'Αποτυχία' );
+				$msg = $ok ? 'link_sent' : 'link_fail';
+			}
 		}
-		self::redirect( admin_url( 'admin.php?page=lgt-trip&id=' . $id . '&tab=' . ( isset( $_POST['trip_id'] ) && (int) $_POST['trip_id'] ? 'details' : 'manage' ) ), 'saved' );
+		self::redirect( admin_url( 'admin.php?page=lgt-trip&id=' . $id . '&tab=' . ( isset( $_POST['trip_id'] ) && (int) $_POST['trip_id'] ? 'details' : 'manage' ) ), $msg );
 	}
 
 	public static function handle_delete_trip() {

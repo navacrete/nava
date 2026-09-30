@@ -251,6 +251,7 @@
 		if (readonly()) {
 			html += '<div class="lgt-readonly-banner">🔒 Η καταχώρηση έχει κλείσει από το γραφείο. Μπορείτε να δείτε και να κατεβάσετε τις λίστες, όχι όμως να κάνετε αλλαγές. Για αλλαγές επικοινωνήστε μαζί μας' + (S.config.company_phone ? ' στο ' + h(S.config.company_phone) : '') + '.</div>';
 		}
+		if (!isAdmin() && !readonly()) { html += stepsHtml(); }
 		if (t.notes_school && S.tab === 'participants') {
 			html += '<div class="lgt-notes-box"><strong>Μήνυμα από το γραφείο:</strong>\n' + h(t.notes_school) + '</div>';
 		}
@@ -282,76 +283,130 @@
 			case 'summary': html += viewSummary(); break;
 			default: html += viewParticipants();
 		}
+		var focusInfo = null, ae = document.activeElement;
+		if (ae && root.contains(ae) && ae.getAttribute('data-f')) {
+			focusInfo = { pid: ae.getAttribute('data-pid'), f: ae.getAttribute('data-f'), s: ae.selectionStart, e: ae.selectionEnd };
+		}
+		var scrollY = window.scrollY;
 		root.innerHTML = html;
 		bindDnD();
+		if (focusInfo) {
+			var pid = focusMap[focusInfo.pid] || focusInfo.pid;
+			var el = root.querySelector('[data-pid="' + pid + '"][data-f="' + focusInfo.f + '"]');
+			if (el) { el.focus(); try { if (el.setSelectionRange && focusInfo.s !== null) { el.setSelectionRange(focusInfo.s, focusInfo.e); } } catch (err) { /* ignore */ } }
+		}
+		window.scrollTo(0, scrollY);
 	}
 
-	/* ---------------- Participants ---------------- */
+	/* 3-step guide for schools */
+	function stepsHtml() {
+		var t = S.trip, sm = S.summary;
+		var steps = [];
+		steps.push({ tab: 'participants', title: '1. Περάστε τα ονόματα', done: sm.total > 0 && !sm.issue_count, partial: sm.total > 0, hint: sm.total ? (sm.issue_count ? sm.issue_count + ' άτομα με ελλείψεις' : sm.total + ' άτομα, όλα πλήρη') : 'μαθητές & συνοδοί (επικόλληση από Excel ή ένα-ένα)' });
+		if (t.has_hotel) { steps.push({ tab: 'hotel', title: '2. Δωμάτια', done: sm.hotel_rooms > 0 && !sm.hotel_unassigned, partial: sm.hotel_rooms > 0, hint: sm.hotel_rooms ? (sm.hotel_unassigned ? sm.hotel_unassigned + ' χωρίς δωμάτιο' : 'όλοι τοποθετημένοι') : 'ποιος μένει με ποιον (υπάρχει αυτόματη κατανομή)' }); }
+		if (t.has_ferry) { steps.push({ tab: 'cabin', title: (t.has_hotel ? '3' : '2') + '. Καμπίνες', done: sm.cabin_rooms > 0 && !sm.cabin_unassigned, partial: sm.cabin_rooms > 0, hint: sm.cabin_rooms ? (sm.cabin_unassigned ? sm.cabin_unassigned + ' χωρίς καμπίνα' : 'όλοι τοποθετημένοι') : 'μπορούν να αντιγραφούν από τα δωμάτια' }); }
+		steps.push({ tab: 'summary', title: steps.length + 1 + '. Υποβολή στο γραφείο', done: !!t.submitted_at && !(t.data_updated_at && t.data_updated_at > t.submitted_at), partial: !!t.submitted_at, hint: t.submitted_at ? 'υποβλήθηκε ' + fmtDateTime(t.submitted_at) : 'όταν τελειώσετε, ένα κλικ' });
+		var html = '<div class="lgt-steps">';
+		steps.forEach(function (st) {
+			html += '<button class="lgt-step' + (st.done ? ' lgt-step-done' : (st.partial ? ' lgt-step-partial' : '')) + (S.tab === st.tab ? ' lgt-step-active' : '') + '" data-tab="' + st.tab + '"><span class="lgt-step-icon">' + (st.done ? '✓' : (st.partial ? '…' : '')) + '</span><span><b>' + h(st.title) + '</b><br><small>' + h(st.hint) + '</small></span></button>';
+		});
+		return html + '</div>';
+	}
+
+	/* ---------------- Participants (spreadsheet-style grid) ---------------- */
+
+	var blankSeq = 0, blankRows = [], draft = {}, latManual = {}, focusMap = {};
+	function ensureBlankRows(min) { while (blankRows.length < min) { blankRows.push('n' + (++blankSeq)); } }
+	function isTemp(pid) { return String(pid).charAt(0) === 'n'; }
+
+	function gridColumns() {
+		var t = S.trip, cols = [
+			{ f: 'last_name', label: 'Επώνυμο', w: 150 },
+			{ f: 'first_name', label: 'Όνομα', w: 130 },
+			{ f: 'last_name_lat', label: 'Επώνυμο λατινικά', w: 150, lat: true },
+			{ f: 'first_name_lat', label: 'Όνομα λατινικά', w: 130, lat: true },
+			{ f: 'gender', label: 'Φύλο', w: 90, type: 'gender' },
+			{ f: 'class_name', label: 'Τμήμα', w: 70 },
+			{ f: 'birth_date', label: 'Ημ. γέννησης', w: 110, type: 'date' }
+		];
+		if (t.has_ferry || t.has_flight) {
+			cols.push({ f: 'nationality', label: 'Εθν.', w: 60 });
+			cols.push({ f: 'doc_type', label: 'Έγγραφο', w: 110, type: 'doc_type' });
+			cols.push({ f: 'doc_number', label: 'Αρ. εγγράφου', w: 120 });
+		}
+		if (t.has_flight) { cols.push({ f: 'doc_expiry', label: 'Λήξη εγγράφου', w: 110, type: 'date' }); }
+		cols.push({ f: 'ptype', label: 'Ιδιότητα', w: 110, type: 'ptype' });
+		return cols;
+	}
+	/* Columns that a pasted block maps onto, in order (Latin columns are auto-filled). */
+	function pasteColumns() { return gridColumns().filter(function (c) { return !c.lat && c.f !== 'ptype'; }).map(function (c) { return c.f; }); }
+
+	function cellHtml(col, v, pid, miss, ro) {
+		var req = (S.trip.required_fields || []).indexOf(col.f) >= 0;
+		var cls = 'lgt-cell' + (miss.indexOf(col.f) >= 0 ? ' lgt-cell-missing' : '') + (col.lat ? ' lgt-lat' : '');
+		var attrs = ' data-pid="' + pid + '" data-f="' + col.f + '"' + (ro ? ' disabled' : '') + ' title="' + h(col.label) + (req ? ' (υποχρεωτικό)' : '') + '"';
+		var opt = function (val, label) { return '<option value="' + val + '"' + (v === val ? ' selected' : '') + '>' + label + '</option>'; };
+		switch (col.type) {
+			case 'gender': return '<select class="' + cls + '"' + attrs + '>' + opt('', '—') + opt('M', 'Αγόρι') + opt('F', 'Κορίτσι') + '</select>';
+			case 'doc_type': return '<select class="' + cls + '"' + attrs + '>' + opt('', '—') + opt('ID', 'Ταυτότητα') + opt('PASSPORT', 'Διαβατήριο') + '</select>';
+			case 'ptype': return '<select class="' + cls + '"' + attrs + '>' + opt('student', 'Μαθητής/τρια') + opt('teacher', 'Καθηγητής/τρια') + opt('escort', 'Συνοδός') + '</select>';
+			case 'date': return '<input type="text" class="' + cls + '" inputmode="numeric" maxlength="10" placeholder="ηη/μμ/εεεε" value="' + h(fmtDate(v)) + '"' + attrs + ' autocomplete="off">';
+			default: return '<input type="text" class="' + cls + '" value="' + h(v) + '"' + attrs + (col.lat ? ' spellcheck="false" placeholder="αυτόματα"' : '') + (col.f === 'nationality' ? ' placeholder="GR"' : '') + ' autocomplete="off">';
+		}
+	}
 
 	function viewParticipants() {
-		var t = S.trip, ro = readonly();
+		var t = S.trip, ro = readonly(), cols = gridColumns();
 		var html = '<div class="lgt-toolbar">';
 		if (!ro) {
-			html += '<button class="lgt-btn lgt-btn-primary" data-act="add">+ Προσθήκη ατόμου</button>';
-			html += '<button class="lgt-btn" data-act="import">📋 Μαζική εισαγωγή (Excel)</button>';
+			html += '<button class="lgt-btn lgt-btn-primary" data-act="import">📋 Επικόλληση από Excel</button>';
+			html += '<button class="lgt-btn" data-act="moreRows">+ 10 γραμμές</button>';
 		}
 		html += '<span class="lgt-spacer"></span>';
-		html += '<input type="search" class="lgt-input" data-role="search" placeholder="Αναζήτηση…" value="' + h(S.search) + '" style="width:180px">';
+		html += '<input type="search" class="lgt-input" data-role="search" placeholder="Αναζήτηση…" value="' + h(S.search) + '" style="width:170px">';
 		var cls = classes();
 		if (cls.length) {
 			html += '<select class="lgt-select" data-role="classFilter"><option value="">Όλα τα τμήματα</option>' + cls.map(function (c) { return '<option value="' + h(c) + '"' + (S.classFilter === c ? ' selected' : '') + '>' + h(c) + '</option>'; }).join('') + '</select>';
 		}
-		if (S.summary.cancelled) {
-			html += '<label class="lgt-small"><input type="checkbox" data-role="showCancelled"' + (S.showCancelled ? ' checked' : '') + '> Ακυρωμένοι (' + S.summary.cancelled + ')</label>';
-		}
+		if (S.summary.cancelled) { html += '<label class="lgt-small"><input type="checkbox" data-role="showCancelled"' + (S.showCancelled ? ' checked' : '') + '> Ακυρωμένοι (' + S.summary.cancelled + ')</label>'; }
 		html += '</div>';
-
+		if (!ro) {
+			html += '<div class="lgt-alert lgt-alert-info lgt-small">✍️ Γράψτε <b>κατευθείαν μέσα στον πίνακα</b>, όπως στο Excel. Κάθε γραμμή αποθηκεύεται μόνη της. Τα λατινικά συμπληρώνονται αυτόματα (ΕΛΟΤ 743, όπως στην ταυτότητα) – διορθώστε τα μόνο αν διαφέρουν από το έγγραφο. Έχετε ήδη λίστα; Επικολλήστε την (Ctrl+V) στο πρώτο κενό «Επώνυμο» ή πατήστε «Επικόλληση από Excel».</div>';
+		}
 		var list = S.participants.filter(function (p) {
 			if (!S.showCancelled && p.status !== 'active') { return false; }
 			if (S.classFilter && p.class_name !== S.classFilter) { return false; }
-			if (S.search) {
-				var q = S.search.toLowerCase();
-				return (fullName(p) + ' ' + latName(p) + ' ' + p.class_name + ' ' + p.doc_number).toLowerCase().indexOf(q) >= 0;
-			}
+			if (S.search) { var q = S.search.toLowerCase(); return (fullName(p) + ' ' + latName(p) + ' ' + p.class_name + ' ' + p.doc_number).toLowerCase().indexOf(q) >= 0; }
 			return true;
 		});
-		if (!S.participants.length) {
-			html += '<div class="lgt-card"><div class="lgt-empty"><b>Δεν υπάρχουν ακόμη συμμετέχοντες</b>Προσθέστε μαθητές και συνοδούς έναν-έναν ή επικολλήστε ολόκληρη τη λίστα από Excel.' + (ro ? '' : '<br><br><button class="lgt-btn lgt-btn-primary" data-act="import">📋 Μαζική εισαγωγή</button> <button class="lgt-btn" data-act="add">+ Προσθήκη ατόμου</button>') + '</div></div>';
-			return html;
-		}
-		var showDocs = t.has_flight || t.has_ferry;
-		html += '<div class="lgt-table-wrap"><table class="lgt-table"><thead><tr>';
-		html += '<th>#</th><th>Ονοματεπώνυμο</th><th>Λατινικά (όπως στο έγγραφο)</th><th>Φύλο</th><th>Τμήμα</th>';
-		if (showDocs) { html += '<th>Ημ. γέννησης</th><th>Εθν.</th><th>Έγγραφο</th>'; }
+		html += '<div class="lgt-grid-wrap"><table class="lgt-grid"><thead><tr><th class="lgt-grid-num">#</th>';
+		cols.forEach(function (c) { html += '<th style="min-width:' + c.w + 'px">' + h(c.label) + ((t.required_fields || []).indexOf(c.f) >= 0 ? ' <span class="lgt-req">*</span>' : '') + '</th>'; });
 		if (t.has_hotel) { html += '<th>Δωμ.</th>'; }
 		if (t.has_ferry) { html += '<th>Καμπ.</th>'; }
-		html += '<th>Έλεγχος</th><th></th></tr></thead><tbody>';
+		html += '<th class="lgt-grid-status"></th></tr></thead><tbody>';
 		list.forEach(function (p, i) {
 			var iss = issueOf(p), miss = iss ? iss.missing : [];
-			var rowCls = (p.status !== 'active' ? 'lgt-row-cancelled' : (iss ? 'lgt-row-issue' : ''));
-			html += '<tr class="' + rowCls + '" data-pid="' + p.id + '">';
-			html += '<td class="lgt-muted">' + (i + 1) + '</td>';
-			html += '<td><span class="lgt-name-main">' + h(p.last_name) + ' ' + h(p.first_name) + '</span>' + (p.ptype !== 'student' ? ' <span class="lgt-chip">' + ptypeLabel(p.ptype) + '</span>' : '') + (p.notes ? ' <span title="' + h(p.notes) + '">📝</span>' : '') + '</td>';
-			html += '<td class="lgt-lat">' + h(latName(p)) + (p.lat_manual ? ' <span title="Χειροκίνητη διόρθωση">✎</span>' : '') + '</td>';
-			html += '<td>' + (p.gender ? '<span class="lgt-sex lgt-sex-' + p.gender + '">' + (p.gender === 'M' ? 'Α' : 'Κ') + '</span>' : '<span class="lgt-badge lgt-badge-err">;</span>') + '</td>';
-			html += '<td>' + h(p.class_name) + '</td>';
-			if (showDocs) {
-				html += '<td class="' + (miss.indexOf('birth_date') >= 0 ? 'lgt-missing' : '') + '">' + (fmtDate(p.birth_date) || 'λείπει') + '</td>';
-				html += '<td class="' + (miss.indexOf('nationality') >= 0 ? 'lgt-missing' : '') + '">' + h(p.nationality || 'λείπει') + '</td>';
-				var docParts = [];
-				if (p.doc_type) { docParts.push(p.doc_type === 'PASSPORT' ? 'Διαβ.' : 'ΑΔΤ'); } else if (miss.indexOf('doc_type') >= 0) { docParts.push('<span class="lgt-badge lgt-badge-err">τύπος;</span>'); }
-				docParts.push(p.doc_number ? '<span class="lgt-lat">' + h(p.doc_number) + '</span>' : (miss.indexOf('doc_number') >= 0 ? '<span class="lgt-badge lgt-badge-err">αριθμός;</span>' : '—'));
-				if (p.doc_expiry) { docParts.push('<span class="lgt-muted lgt-small">έως ' + fmtDate(p.doc_expiry) + '</span>'); } else if (miss.indexOf('doc_expiry') >= 0) { docParts.push('<span class="lgt-badge lgt-badge-err">λήξη;</span>'); }
-				html += '<td>' + docParts.join(' ') + '</td>';
-			}
-			if (t.has_hotel) { var hr = roomOf('hotel', p.id); html += '<td>' + (hr ? h(roomLabel(hr)) : '<span class="lgt-muted">—</span>') + '</td>'; }
-			if (t.has_ferry) { var cr = roomOf('cabin', p.id); html += '<td>' + (cr ? h(roomLabel(cr)) : '<span class="lgt-muted">—</span>') + '</td>'; }
-			html += '<td>' + (p.status !== 'active' ? '<span class="lgt-badge">Ακυρώθηκε</span>' : (iss ? '<span class="lgt-badge lgt-badge-err" title="' + h(missingLabels(p).join(', ')) + '">' + missingLabels(p).length + ' ⚠</span>' : '<span class="lgt-badge lgt-badge-ok">OK</span>')) + '</td>';
-			html += '<td class="lgt-actions"><button class="lgt-btn-icon" data-act="edit" data-pid="' + p.id + '" title="' + (ro ? 'Προβολή' : 'Επεξεργασία') + '">' + (ro ? '👁' : '✏️') + '</button>' + (ro ? '' : '<button class="lgt-btn-icon" data-act="delete" data-pid="' + p.id + '" title="Διαγραφή">🗑</button>') + '</td>';
-			html += '</tr>';
+			var rowCls = p.status !== 'active' ? 'lgt-row-cancelled' : (iss ? 'lgt-row-issue' : '');
+			html += '<tr class="' + rowCls + '" data-row="' + p.id + '"><td class="lgt-grid-num">' + (i + 1) + '</td>';
+			cols.forEach(function (c) { html += '<td>' + cellHtml(c, p[c.f] || '', p.id, miss, ro || p.status !== 'active') + '</td>'; });
+			if (t.has_hotel) { var hr = roomOf('hotel', p.id); html += '<td class="lgt-grid-ro">' + (hr ? h(roomLabel(hr)) : '—') + '</td>'; }
+			if (t.has_ferry) { var cr = roomOf('cabin', p.id); html += '<td class="lgt-grid-ro">' + (cr ? h(roomLabel(cr)) : '—') + '</td>'; }
+			html += '<td class="lgt-grid-status lgt-actions">' + (p.status !== 'active' ? '<span class="lgt-badge">Ακυρ.</span>' : (iss ? '<span class="lgt-badge lgt-badge-err" title="' + h(missingLabels(p).join(', ')) + '">' + missingLabels(p).length + ' ⚠</span>' : '<span class="lgt-badge lgt-badge-ok" title="Πλήρη στοιχεία">✓</span>'));
+			html += ' <button class="lgt-btn-icon" data-act="edit" data-pid="' + p.id + '" title="Περισσότερα (τηλέφωνο, σημειώσεις, ακύρωση)">⋯</button>' + (ro ? '' : '<button class="lgt-btn-icon" data-act="delete" data-pid="' + p.id + '" title="Διαγραφή">🗑</button>') + '</td></tr>';
 		});
+		if (!ro && !S.search && !S.classFilter) {
+			ensureBlankRows(S.participants.length ? 5 : 15);
+			blankRows.forEach(function (tid, j) {
+				var d = draft[tid] || {};
+				html += '<tr class="lgt-row-blank" data-row="' + tid + '"><td class="lgt-grid-num">' + (list.length + j + 1) + '</td>';
+				cols.forEach(function (c) { var v = d[c.f]; if (v === undefined) { v = c.f === 'nationality' ? (S.config.default_nationality || 'GR') : (c.f === 'ptype' ? 'student' : (c.f === 'class_name' ? (S.classFilter || d.class_name || '') : '')); } html += '<td>' + cellHtml(c, v, tid, [], false) + '</td>'; });
+				if (t.has_hotel) { html += '<td></td>'; }
+				if (t.has_ferry) { html += '<td></td>'; }
+				html += '<td class="lgt-grid-status"><span class="lgt-muted lgt-small" data-status="' + tid + '"></span></td></tr>';
+			});
+		}
 		html += '</tbody></table></div>';
-		html += '<p class="lgt-muted lgt-small">Τα λατινικά ονόματα παράγονται αυτόματα κατά το πρότυπο ΕΛΟΤ 743 (όπως στις ταυτότητες/διαβατήρια). Ελέγξτε τα με βάση το έγγραφο κάθε μαθητή και διορθώστε αν χρειάζεται.</p>';
+		if (!list.length && ro) { html += '<div class="lgt-empty">Δεν υπάρχουν συμμετέχοντες.</div>'; }
 		return html;
 	}
 
@@ -360,105 +415,198 @@
 		return r ? r.label : '';
 	}
 
-	/* ---------------- Rooms / cabins ---------------- */
+	function rowValues(pid) {
+		var d = {};
+		root.querySelectorAll('[data-pid="' + pid + '"][data-f]').forEach(function (i) { d[i.getAttribute('data-f')] = i.value.trim(); });
+		return d;
+	}
+	function setRowStatus(pid, txt) {
+		var el = root.querySelector('[data-status="' + pid + '"]');
+		if (el) { el.textContent = txt; }
+	}
+	function formatDateTyping(v) {
+		var digits = String(v || '').replace(/\D/g, '').slice(0, 8), parts = [];
+		if (digits.length > 0) { parts.push(digits.slice(0, 2)); }
+		if (digits.length > 2) { parts.push(digits.slice(2, 4)); }
+		if (digits.length > 4) { parts.push(digits.slice(4, 8)); }
+		return parts.join('/');
+	}
+
+	function saveCell(el) {
+		var pid = el.getAttribute('data-pid'), f = el.getAttribute('data-f');
+		var d = rowValues(pid);
+		if (isTemp(pid)) {
+			draft[pid] = d;
+			if (!d.last_name || !d.first_name) { return; }
+			if (!d.gender) { d.gender = guessGender(d.first_name); }
+			d.lat_manual = latManual[pid] ? 1 : 0;
+			setRowStatus(pid, 'αποθήκευση…');
+			api('POST', '/participants', d).then(function (res) {
+				blankRows = blankRows.filter(function (x) { return x !== pid; });
+				delete draft[pid];
+				focusMap[pid] = res.created_id;
+				applyState(res);
+				render();
+			}).catch(function (e) { toast(e.message, 'err'); setRowStatus(pid, '⚠ ' + e.message); });
+			return;
+		}
+		var p = byId(parseInt(pid, 10));
+		if (!p) { return; }
+		var patch = {};
+		patch[f] = d[f];
+		if (f === 'last_name' || f === 'first_name') {
+			if (!p.lat_manual && !latManual[pid]) { patch.last_name_lat = d.last_name_lat; patch.first_name_lat = d.first_name_lat; patch.lat_manual = 0; }
+		}
+		if (f === 'last_name_lat' || f === 'first_name_lat') { patch.lat_manual = 1; latManual[pid] = true; }
+		var same = (col => { var cur = p[f] || ''; if (col && col.type === 'date') { cur = fmtDate(cur); } return cur === d[f]; })(gridColumns().filter(function (c) { return c.f === f; })[0]);
+		if (same && !(f === 'last_name_lat' || f === 'first_name_lat')) { return; }
+		if ((f === 'last_name' || f === 'first_name') && !d[f]) { toast('Το ' + (f === 'last_name' ? 'επώνυμο' : 'όνομα') + ' δεν μπορεί να είναι κενό.', 'err'); el.value = p[f]; return; }
+		api('PUT', '/participants/' + pid, patch).then(function (res) { applyState(res); render(); }).catch(function (e) { toast(e.message, 'err'); });
+	}
+
+	/* Paste a block of cells (from Excel) into the grid → bulk import. */
+	function gridPaste(el, text) {
+		var pid = el.getAttribute('data-pid'), f = el.getAttribute('data-f');
+		var parsed = parseClipboard(text);
+		if (!parsed.rows.length) { return false; }
+		var multi = parsed.rows.length > 1 || parsed.rows[0].length > 1;
+		if (!multi) { return false; }
+		var order = pasteColumns();
+		var startIdx = Math.max(0, order.indexOf(f === 'last_name_lat' || f === 'first_name_lat' ? 'last_name' : f));
+		var rows = parsed.rows.slice(parsed.header ? 1 : 0), headers = parsed.header ? parsed.rows[0] : [];
+		var ncol = Math.max.apply(null, rows.map(function (r) { return r.length; }).concat([1]));
+		var mapping = [];
+		for (var c = 0; c < ncol; c++) {
+			var g = parsed.header ? guessField(headers[c]) : (order[startIdx + c] || '');
+			if (c === 0 && !parsed.header && rows.filter(function (r) { return /\s/.test(r[0] || ''); }).length > rows.length / 2 && (ncol === 1 || !rows.some(function (r) { return r[1] && /[Ͱ-Ͽ]/.test(r[1]) && !/^(Α|Κ|M|F|Θ)$/i.test(r[1]); }))) { g = 'full_name'; }
+			mapping.push(g);
+		}
+		var defClass = rowValues(pid).class_name || S.classFilter || '';
+		var out = [];
+		rows.forEach(function (r) {
+			var d = { class_name: defClass, ptype: 'student' };
+			mapping.forEach(function (fld, i) {
+				var v = (r[i] || '').trim();
+				if (!fld || !v) { return; }
+				if (fld === 'full_name') { var parts = v.split(/\s+/); d.last_name = parts[0]; d.first_name = parts.slice(1).join(' '); return; }
+				if (fld === 'gender') { var g2 = v.toUpperCase(); d.gender = /^(M|A|Α|ΑΓ|ΑΡ|ΑΝΔ|MALE|BOY)/.test(g2) ? 'M' : (/^(F|Θ|Κ|Γ|FEM|GIRL|W)/.test(g2) ? 'F' : ''); return; }
+				if (fld === 'doc_type') { d.doc_type = /διαβ|pass/i.test(v) ? 'PASSPORT' : 'ID'; return; }
+				d[fld] = v;
+			});
+			if (!d.first_name && d.last_name && /\s/.test(d.last_name)) { var np = d.last_name.split(/\s+/); d.last_name = np[0]; d.first_name = np.slice(1).join(' '); }
+			if (!d.gender) { d.gender = guessGender(d.first_name); }
+			if (d.last_name && d.first_name) { out.push(d); }
+		});
+		if (!out.length) { toast('Δεν αναγνωρίστηκαν ονόματα στην επικόλληση.', 'err'); return true; }
+		if (isTemp(pid)) { blankRows = blankRows.filter(function (x) { return x !== pid; }); delete draft[pid]; }
+		call('POST', '/participants/import', { rows: out }).then(function (res) {
+			toast('Προστέθηκαν ' + res.added + ' άτομα' + (res.skipped ? ', παραλείφθηκαν ' + res.skipped + ' (κενά ή διπλά)' : '') + '.', 'ok');
+		}).catch(function () { /* toast */ });
+		return true;
+	}
+
+	/* ---------------- Rooms / cabins (column sheet, like the paper rooming list) ---------------- */
 
 	function viewRooms(kind) {
-		var t = S.trip, ro = readonly(), rooms = roomsOf(kind), types = typesOf(kind);
+		var t = S.trip, ro = readonly(), rooms = roomsOf(kind), types = typesOf(kind).slice();
+		types.sort(function (a, b) { return a.capacity - b.capacity; });
 		var other = kind === 'hotel' ? 'cabin' : 'hotel';
 		var otherHas = kind === 'hotel' ? t.has_ferry : t.has_hotel;
 		var un = unassigned(kind);
+		var word = kindLabel(kind), words = kindLabel(kind, true);
 		var html = '';
 		var notes = kind === 'hotel' ? t.hotel_notes : t.ferry_notes;
 		if (notes) { html += '<div class="lgt-notes-box">' + h(notes) + '</div>'; }
 		html += '<div class="lgt-toolbar">';
 		if (!ro) {
-			html += '<span class="lgt-toolbar-group"><select class="lgt-select" data-role="newType">' + types.map(function (x) { return '<option value="' + h(x.code) + '">' + h(x.code) + ' – ' + h(x.label) + ' (' + x.capacity + ')</option>'; }).join('') + '</select>';
-			html += '<input type="number" class="lgt-input" data-role="newCount" value="1" min="1" max="50" style="width:64px"> <button class="lgt-btn lgt-btn-primary lgt-btn-sm" data-act="addRoom" data-kind="' + kind + '">+ ' + kindLabel(kind) + '</button></span>';
-			html += '<button class="lgt-btn" data-act="auto" data-kind="' + kind + '">✨ Αυτόματη κατανομή</button>';
-			if (otherHas && roomsOf(other).length) {
-				html += '<button class="lgt-btn" data-act="copy" data-kind="' + kind + '" title="Οι ίδιες παρέες από ' + kindLabel(other, true).toLowerCase() + ' → ' + kindLabel(kind, true).toLowerCase() + '">⇄ Αντιγραφή από ' + kindLabel(other, true).toLowerCase() + '</button>';
-			}
-			if (rooms.length) { html += '<button class="lgt-btn lgt-btn-danger" data-act="clear" data-kind="' + kind + '">Καθαρισμός</button>'; }
+			html += '<button class="lgt-btn lgt-btn-primary" data-act="auto" data-kind="' + kind + '">✨ Αυτόματη κατανομή</button>';
+			if (otherHas && roomsOf(other).length) { html += '<button class="lgt-btn" data-act="copy" data-kind="' + kind + '">⇄ Ίδιες παρέες με ' + kindLabel(other, true).toLowerCase() + '</button>'; }
+			if (rooms.length) { html += '<button class="lgt-btn lgt-btn-danger lgt-btn-sm" data-act="clear" data-kind="' + kind + '">Καθαρισμός</button>'; }
 		}
 		html += '<span class="lgt-spacer"></span>';
 		html += '<a class="lgt-btn lgt-btn-sm" href="' + h(dlUrl('xlsx', kind === 'hotel' ? 'rooming' : 'cabins')) + '">⬇ Excel</a><a class="lgt-btn lgt-btn-sm" href="' + h(dlUrl('pdf', kind === 'hotel' ? 'rooming' : 'cabins')) + '">⬇ PDF</a>';
 		html += '</div>';
-
-		/* Summary chips */
-		var summ = {};
-		rooms.forEach(function (r) { summ[r.type_code || ('X' + r.capacity)] = (summ[r.type_code || ('X' + r.capacity)] || 0) + 1; });
-		html += '<div class="lgt-summary-row">';
-		Object.keys(summ).sort().forEach(function (k) { html += '<span class="lgt-badge lgt-badge-soft">' + summ[k] + ' × ' + h(k) + '</span>'; });
-		html += '<span class="lgt-badge">' + rooms.length + ' ' + kindLabel(kind, true).toLowerCase() + '</span>';
-		html += '<span class="lgt-badge ' + (un.length ? 'lgt-badge-warn' : 'lgt-badge-ok') + '">' + (un.length ? un.length + ' χωρίς ' + kindLabel(kind).toLowerCase() : 'Όλοι τοποθετημένοι') + '</span>';
-		var over = rooms.filter(function (r) { return membersOf(r.id).length > r.capacity; }).length;
-		if (over) { html += '<span class="lgt-badge lgt-badge-err">' + over + ' υπερπλήρη</span>'; }
+		if (!ro && !rooms.length && active().length) {
+			html += '<div class="lgt-alert lgt-alert-info lgt-small">Πατήστε <b>«Αυτόματη κατανομή»</b> για να μπουν όλοι σε ' + words.toLowerCase() + ' ανά φύλο και τμήμα, ή προσθέστε ' + words.toLowerCase() + ' στις στήλες και επιλέξτε ονόματα σε κάθε θέση. Μπορείτε επίσης να σύρετε ονόματα από ' + word.toLowerCase() + ' σε ' + word.toLowerCase() + '.</div>';
+		}
+		/* Totals like the paper sheet */
+		html += '<div class="lgt-totals">';
+		html += '<div class="lgt-total"><span>Σύνολο ' + words.toLowerCase() + '</span><b>' + rooms.length + '</b></div>';
+		types.forEach(function (ty) { var n = rooms.filter(function (r) { return r.type_code === ty.code; }).length; html += '<div class="lgt-total"><span>' + h(ty.label) + '</span><b>' + n + '</b></div>'; });
+		html += '<div class="lgt-total ' + (un.length ? 'lgt-total-warn' : 'lgt-total-ok') + '"><span>Χωρίς ' + word.toLowerCase() + '</span><b>' + un.length + '</b></div>';
 		html += '</div>';
 
-		html += '<div class="lgt-rooms-layout">';
-		/* Unassigned panel */
-		html += '<div class="lgt-card lgt-unassigned" data-drop="0" data-kind="' + kind + '"><h2>Χωρίς ' + kindLabel(kind).toLowerCase() + ' <span class="lgt-badge">' + un.length + '</span></h2>';
-		if (!ro && un.length) {
-			var selCount = Object.keys(S.selected).filter(function (k) { return S.selected[k]; }).length;
-			html += '<div class="lgt-toolbar" style="margin-bottom:6px"><label class="lgt-small"><input type="checkbox" data-role="selectAll"> Όλοι</label>';
-			html += '<select class="lgt-select lgt-btn-sm" data-role="moveTarget" style="flex:1"><option value="">→ σε ' + kindLabel(kind).toLowerCase() + '…</option><option value="new">+ Νέο/α</option>' + rooms.map(function (r) { var m = membersOf(r.id).length; return '<option value="' + r.id + '">' + h(r.label) + ' (' + m + '/' + r.capacity + ')</option>'; }).join('') + '</select>';
-			html += '<button class="lgt-btn lgt-btn-primary lgt-btn-sm" data-act="moveSelected" data-kind="' + kind + '"' + (selCount ? '' : ' disabled') + '>OK</button></div>';
+		/* Unassigned strip */
+		html += '<div class="lgt-pool' + (un.length ? '' : ' lgt-pool-empty') + '" data-drop="0" data-kind="' + kind + '">';
+		if (un.length) {
+			html += '<div class="lgt-pool-title">Χωρίς ' + word.toLowerCase() + ' (' + un.length + ') – σύρετε σε μια θέση ή επιλέξτε το όνομα μέσα στο ' + word.toLowerCase() + '</div><div class="lgt-pool-list">';
+			un.sort(function (a, b) { return natSort((a.ptype === 'student' ? '1' : '0') + a.class_name + a.gender + fullName(a), (b.ptype === 'student' ? '1' : '0') + b.class_name + b.gender + fullName(b)); }).forEach(function (p) { html += chipHtml(p, kind, false); });
+			html += '</div>';
+		} else {
+			html += '<div class="lgt-pool-title">' + (active().length ? '🎉 Όλοι έχουν ' + word.toLowerCase() + '. Σύρετε ένα όνομα εδώ για να το αφαιρέσετε.' : 'Δεν υπάρχουν ακόμη συμμετέχοντες – συμπληρώστε πρώτα τα ονόματα.') + '</div>';
 		}
-		html += '<div class="lgt-list">';
-		if (!un.length) { html += '<div class="lgt-room-empty">' + (active().length ? 'Όλοι έχουν τοποθετηθεί 🎉' : 'Δεν υπάρχουν συμμετέχοντες') + '</div>'; }
-		var groups = {};
-		un.forEach(function (p) {
-			var key = (p.ptype === 'student' ? '1' : '0') + '|' + (p.gender || 'U') + '|' + (p.ptype === 'student' ? p.class_name : 'Συνοδοί');
-			(groups[key] = groups[key] || []).push(p);
-		});
-		Object.keys(groups).sort(function (a, b) { return natSort(a, b); }).forEach(function (key) {
-			var parts = key.split('|');
-			var title = (parts[0] === '0' ? 'Συνοδοί' : (parts[2] || 'Χωρίς τμήμα')) + ' · ' + (parts[1] === 'M' ? 'Αγόρια' : (parts[1] === 'F' ? 'Κορίτσια' : 'Χωρίς φύλο'));
-			html += '<div class="lgt-group-title">' + h(title) + ' (' + groups[key].length + ')</div>';
-			groups[key].sort(function (a, b) { return natSort(fullName(a), fullName(b)); }).forEach(function (p) { html += personHtml(p, kind, false); });
-		});
-		html += '</div></div>';
+		html += '</div>';
 
-		/* Rooms grid */
-		html += '<div><div class="lgt-rooms-grid">';
-		if (!rooms.length) {
-			html += '<div class="lgt-card" style="grid-column:1/-1"><div class="lgt-empty"><b>Δεν υπάρχουν ' + kindLabel(kind, true).toLowerCase() + ' ακόμη</b>' + (ro ? '' : 'Πατήστε «Αυτόματη κατανομή» για να φτιαχτούν αυτόματα ανά φύλο και τμήμα, ή προσθέστε ' + kindLabel(kind, true).toLowerCase() + ' και σύρετε τα ονόματα μέσα.') + '</div></div>';
-		}
-		rooms.forEach(function (r) {
-			var mem = membersOf(r.id), n = mem.length;
-			var genders = {};
-			mem.forEach(function (p) { if (p.gender) { genders[p.gender] = 1; } });
-			var mixed = Object.keys(genders).length > 1;
-			var capCls = n > r.capacity ? 'lgt-over' : (n === r.capacity ? 'lgt-full' : '');
-			html += '<div class="lgt-room' + (mixed ? ' lgt-room-mixed' : '') + '" data-drop="' + r.id + '" data-kind="' + kind + '">';
-			html += '<div class="lgt-room-head"><span class="lgt-room-label" data-act="renameRoom" data-rid="' + r.id + '" title="' + (ro ? '' : 'Μετονομασία') + '">' + h(r.label) + '</span>';
-			if (ro) { html += '<span class="lgt-room-type">' + h(r.type_code || r.capacity + '-BED') + '</span>'; }
-			else { html += '<select class="lgt-room-type" data-act="roomType" data-rid="' + r.id + '">' + types.map(function (x) { return '<option value="' + h(x.code) + '"' + (x.code === r.type_code ? ' selected' : '') + '>' + h(x.code) + ' (' + x.capacity + ')</option>'; }).join('') + (types.some(function (x) { return x.code === r.type_code; }) ? '' : '<option value="' + h(r.type_code) + '" selected>' + h(r.type_code || 'X') + ' (' + r.capacity + ')</option>') + '</select>'; }
-			html += '<span class="lgt-room-cap ' + capCls + '">' + n + '/' + r.capacity + '</span></div>';
-			if (mixed) { html += '<div class="lgt-room-notes">⚠ Μικτό φύλο</div>'; }
-			if (r.notes === 'underfilled') { html += '<div class="lgt-room-notes">Κενή θέση – συμπληρώστε ή αλλάξτε τύπο</div>'; }
-			else if (r.notes) { html += '<div class="lgt-room-notes">' + h(r.notes) + '</div>'; }
-			html += '<div class="lgt-room-body">';
-			if (!n) { html += '<div class="lgt-room-empty">Σύρετε ονόματα εδώ</div>'; }
-			mem.forEach(function (p) { html += personHtml(p, kind, true); });
-			html += '</div>';
-			if (!ro) { html += '<div class="lgt-room-foot"><button class="lgt-btn lgt-btn-xs lgt-btn-danger" data-act="deleteRoom" data-rid="' + r.id + '">Διαγραφή</button></div>'; }
+		/* Columns per type */
+		var known = {};
+		types.forEach(function (ty) { known[ty.code] = 1; });
+		var extra = rooms.filter(function (r) { return !known[r.type_code]; });
+		html += '<div class="lgt-sheet">';
+		types.forEach(function (ty) {
+			var list = rooms.filter(function (r) { return r.type_code === ty.code; });
+			html += '<div class="lgt-col"><div class="lgt-col-title">' + h(ty.label) + '<small>' + h(ty.code) + ' · ' + ty.capacity + ' άτομα · ' + list.length + ' ' + words.toLowerCase() + '</small></div>';
+			list.forEach(function (r) { html += roomBoxHtml(r, kind, un, ro); });
+			if (!ro) { html += '<button class="lgt-btn lgt-btn-sm lgt-col-add" data-act="addRoom" data-kind="' + kind + '" data-type="' + h(ty.code) + '">+ ' + word + '</button>'; }
 			html += '</div>';
 		});
-		html += '</div></div></div>';
+		if (extra.length) {
+			html += '<div class="lgt-col"><div class="lgt-col-title">Άλλα<small>' + extra.length + '</small></div>';
+			extra.forEach(function (r) { html += roomBoxHtml(r, kind, un, ro); });
+			html += '</div>';
+		}
+		html += '</div>';
 		return html;
 	}
 
-	function personHtml(p, kind, inRoom) {
+	function chipHtml(p, kind, inRoom) {
 		var ro = readonly();
-		var cls = 'lgt-person' + (p.ptype !== 'student' ? ' lgt-person-staff' : '') + (S.selected[p.id] ? ' lgt-selected' : '');
-		var html = '<div class="' + cls + '" draggable="' + (ro ? 'false' : 'true') + '" data-pid="' + p.id + '" data-kind="' + kind + '">';
-		if (!inRoom && !ro) { html += '<input type="checkbox" data-role="sel" data-pid="' + p.id + '"' + (S.selected[p.id] ? ' checked' : '') + '>'; }
-		html += '<span class="lgt-sex lgt-sex-' + (p.gender || 'U') + '">' + (p.gender === 'M' ? 'Α' : (p.gender === 'F' ? 'Κ' : '?')) + '</span>';
-		html += '<span class="lgt-person-name" title="' + h(latName(p)) + '">' + h(fullName(p)) + (p.class_name && inRoom ? ' <span class="lgt-person-cls">' + h(p.class_name) + '</span>' : '') + (p.ptype !== 'student' ? ' <span class="lgt-person-cls">' + ptypeLabel(p.ptype) + '</span>' : '') + '</span>';
-		if (inRoom && !ro) { html += '<button class="lgt-btn-icon" data-act="unassign" data-pid="' + p.id + '" data-kind="' + kind + '" title="Αφαίρεση">✕</button>'; }
+		return '<div class="lgt-chip-person' + (p.ptype !== 'student' ? ' lgt-chip-staff' : '') + '" draggable="' + (ro ? 'false' : 'true') + '" data-pid="' + p.id + '" data-kind="' + kind + '" title="' + h(latName(p)) + '">'
+			+ '<span class="lgt-sex lgt-sex-' + (p.gender || 'U') + '">' + (p.gender === 'M' ? 'Α' : (p.gender === 'F' ? 'Κ' : '?')) + '</span>'
+			+ '<span class="lgt-chip-name">' + h(fullName(p)) + '</span>'
+			+ (p.class_name ? '<span class="lgt-chip-cls">' + h(p.class_name) + '</span>' : '') + (p.ptype !== 'student' ? '<span class="lgt-chip-cls">' + ptypeLabel(p.ptype) + '</span>' : '')
+			+ (inRoom && !ro ? '<button class="lgt-chip-x" data-act="unassign" data-pid="' + p.id + '" data-kind="' + kind + '" title="Αφαίρεση">✕</button>' : '')
+			+ '</div>';
+	}
+
+	function roomBoxHtml(r, kind, un, ro) {
+		var mem = membersOf(r.id), n = mem.length, slots = Math.max(r.capacity, n);
+		var genders = {};
+		mem.forEach(function (p) { if (p.gender) { genders[p.gender] = 1; } });
+		var mixed = Object.keys(genders).length > 1;
+		var html = '<div class="lgt-room' + (mixed ? ' lgt-room-mixed' : '') + (n > r.capacity ? ' lgt-room-over' : '') + '" data-drop="' + r.id + '" data-kind="' + kind + '">';
+		html += '<div class="lgt-room-head"><span class="lgt-room-label" data-act="renameRoom" data-rid="' + r.id + '">' + kindLabel(kind) + ' ' + h(r.label) + '</span><span class="lgt-room-cap ' + (n > r.capacity ? 'lgt-over' : (n === r.capacity ? 'lgt-full' : '')) + '">' + n + '/' + r.capacity + '</span>' + (ro ? '' : '<button class="lgt-btn-icon lgt-room-del" data-act="deleteRoom" data-rid="' + r.id + '" title="Διαγραφή ' + kindLabel(kind).toLowerCase() + '">🗑</button>') + '</div>';
+		if (mixed) { html += '<div class="lgt-room-notes">⚠ Μικτό φύλο</div>'; }
+		if (n > r.capacity) { html += '<div class="lgt-room-notes">⚠ Περισσότερα άτομα από τις θέσεις</div>'; }
+		for (var i = 0; i < slots; i++) {
+			if (mem[i]) { html += '<div class="lgt-slot lgt-slot-filled">' + chipHtml(mem[i], kind, true) + '</div>'; }
+			else if (ro) { html += '<div class="lgt-slot lgt-slot-empty"><span class="lgt-muted">κενή θέση</span></div>'; }
+			else { html += '<div class="lgt-slot lgt-slot-empty">' + slotSelectHtml(r, kind, un) + '</div>'; }
+		}
 		html += '</div>';
 		return html;
+	}
+
+	function slotSelectHtml(r, kind, un) {
+		var groups = {};
+		un.forEach(function (p) {
+			var key = p.ptype === 'student' ? ((p.class_name || 'Χωρίς τμήμα') + ' · ' + (p.gender === 'M' ? 'Αγόρια' : (p.gender === 'F' ? 'Κορίτσια' : 'Χωρίς φύλο'))) : 'Συνοδοί';
+			(groups[key] = groups[key] || []).push(p);
+		});
+		var html = '<select class="lgt-slot-pick" data-act="slotPick" data-rid="' + r.id + '" data-kind="' + kind + '"><option value="">' + (un.length ? '— επιλέξτε όνομα —' : '— κενή θέση —') + '</option>';
+		Object.keys(groups).sort(natSort).forEach(function (k) {
+			html += '<optgroup label="' + h(k) + '">' + groups[k].map(function (p) { return '<option value="' + p.id + '">' + h(fullName(p)) + '</option>'; }).join('') + '</optgroup>';
+		});
+		return html + '</select>';
 	}
 
 	/* ---------------- Manifests ---------------- */
@@ -821,9 +969,9 @@
 				if (f === 'doc_type') { d.doc_type = /διαβ|pass/i.test(v) ? 'PASSPORT' : 'ID'; return; }
 				d[f] = v;
 			});
+			if (!d.first_name && d.last_name && /\s/.test(d.last_name)) { var np2 = d.last_name.split(/\s+/); d.last_name = np2[0]; d.first_name = np2.slice(1).join(' '); }
 			if (!d.gender && guess) { d.gender = guessGender(d.first_name); }
 			if (d.last_name && d.first_name) { out.push(d); }
-			else if (d.last_name && !d.first_name) { d.first_name = '-'; out.push(d); }
 		});
 		if (!out.length) { toast('Δεν βρέθηκαν έγκυρες γραμμές.', 'err'); return; }
 		call('POST', '/participants/import', { rows: out }).then(function (res) {
@@ -862,7 +1010,7 @@
 	var dragPid = null;
 	function bindDnD() {
 		if (readonly()) { return; }
-		root.querySelectorAll('.lgt-person[draggable=true]').forEach(function (el) {
+		root.querySelectorAll('.lgt-chip-person[draggable=true]').forEach(function (el) {
 			el.addEventListener('dragstart', function (e) {
 				dragPid = parseInt(el.getAttribute('data-pid'), 10);
 				el.classList.add('lgt-dragging');
@@ -876,16 +1024,14 @@
 			zone.addEventListener('dragleave', function () { zone.classList.remove('lgt-drop-hover'); });
 			zone.addEventListener('drop', function (e) {
 				e.preventDefault();
+				e.stopPropagation();
 				zone.classList.remove('lgt-drop-hover');
 				var pid = dragPid || parseInt(e.dataTransfer.getData('text/plain'), 10);
 				if (!pid) { return; }
 				var roomId = parseInt(zone.getAttribute('data-drop'), 10), kind = zone.getAttribute('data-kind');
-				var ids = [pid];
-				/* Drag a selected item → move the whole selection. */
-				if (S.selected[pid]) { ids = Object.keys(S.selected).filter(function (k) { return S.selected[k]; }).map(Number); }
-				if (roomId && !confirmOverfill(roomId, ids.length)) { return; }
-				S.selected = {};
-				call('POST', '/rooms/assign', { kind: kind, room_id: roomId, participant_ids: ids });
+				if (roomId && roomOf(kind, pid) === roomId) { return; }
+				if (roomId && !confirmOverfill(roomId, 1)) { return; }
+				call('POST', '/rooms/assign', { kind: kind, room_id: roomId, participant_ids: [pid] });
 			});
 		});
 	}
@@ -902,7 +1048,7 @@
 	/* ------------------------------------------------------------------ */
 
 	document.addEventListener('click', function (e) {
-		var tabBtn = e.target.closest('.lgt-tab');
+		var tabBtn = e.target.closest('.lgt-tab, .lgt-step');
 		if (tabBtn && root.contains(tabBtn)) { S.tab = tabBtn.getAttribute('data-tab'); S.selected = {}; location.hash = S.tab; render(); return; }
 		var seg = e.target.closest('.lgt-seg button');
 		if (seg && S.modal && S.modal.contains(seg)) {
@@ -931,8 +1077,11 @@
 			case 'importPreview': importPreview(); break;
 			case 'importRun': importRun(); break;
 			case 'addRoom':
-				var typeSel = root.querySelector('[data-role=newType]'), cnt = root.querySelector('[data-role=newCount]');
-				call('POST', '/rooms', { kind: kind, type_code: typeSel ? typeSel.value : '', count: cnt ? parseInt(cnt.value, 10) || 1 : 1 });
+				call('POST', '/rooms', { kind: kind, type_code: btn.getAttribute('data-type') || '', count: 1 });
+				break;
+			case 'moreRows':
+				ensureBlankRows(blankRows.length + 10);
+				render();
 				break;
 			case 'auto': autoDialog(kind); break;
 			case 'autoRun': autoRun(kind); break;
@@ -955,24 +1104,6 @@
 				if (nl !== null && nl.trim() !== '' && nl !== r0.label) { call('PUT', '/rooms/' + rid, { label: nl.trim() }); }
 				break;
 			case 'unassign': call('POST', '/rooms/assign', { kind: kind, room_id: 0, participant_ids: [pid] }); break;
-			case 'moveSelected':
-				var target = root.querySelector('[data-role=moveTarget]');
-				var ids = Object.keys(S.selected).filter(function (k) { return S.selected[k]; }).map(Number);
-				if (!ids.length) { toast('Επιλέξτε άτομα.', 'err'); break; }
-				if (!target || !target.value) { toast('Επιλέξτε ' + kindLabel(kind).toLowerCase() + '.', 'err'); break; }
-				if (target.value === 'new') {
-					var ts = root.querySelector('[data-role=newType]');
-					call('POST', '/rooms', { kind: kind, type_code: ts ? ts.value : '' }).then(function (res) {
-						S.selected = {};
-						return call('POST', '/rooms/assign', { kind: kind, room_id: res.created_id, participant_ids: ids });
-					}).catch(function () { /* toast */ });
-				} else {
-					var roomId = parseInt(target.value, 10);
-					if (!confirmOverfill(roomId, ids.length)) { break; }
-					S.selected = {};
-					call('POST', '/rooms/assign', { kind: kind, room_id: roomId, participant_ids: ids });
-				}
-				break;
 			case 'submit':
 				var msgEl = root.querySelector('[data-role=submitMsg]');
 				if (!window.confirm(isAdmin() ? 'Αποστολή των λιστών στα email του γραφείου;' : 'Υποβολή της λίστας στο γραφείο;')) { break; }
@@ -1005,23 +1136,59 @@
 		var el = e.target;
 		if (!root.contains(el)) { return; }
 		var role = el.getAttribute('data-role');
-		if (role === 'classFilter') { S.classFilter = el.value; render(); }
-		else if (role === 'showCancelled') { S.showCancelled = el.checked; render(); }
-		else if (role === 'sel') { S.selected[el.getAttribute('data-pid')] = el.checked; el.closest('.lgt-person').classList.toggle('lgt-selected', el.checked); var mv = root.querySelector('[data-act=moveSelected]'); if (mv) { mv.disabled = !Object.keys(S.selected).some(function (k) { return S.selected[k]; }); } }
-		else if (role === 'selectAll') { root.querySelectorAll('[data-role=sel]').forEach(function (c) { c.checked = el.checked; S.selected[c.getAttribute('data-pid')] = el.checked; c.closest('.lgt-person').classList.toggle('lgt-selected', el.checked); }); var mv2 = root.querySelector('[data-act=moveSelected]'); if (mv2) { mv2.disabled = !el.checked; } }
-		else if (el.getAttribute('data-act') === 'roomType') { call('PUT', '/rooms/' + el.getAttribute('data-rid'), { type_code: el.value }); }
+		if (role === 'classFilter') { S.classFilter = el.value; render(); return; }
+		if (role === 'showCancelled') { S.showCancelled = el.checked; render(); return; }
+		if (el.getAttribute('data-act') === 'slotPick') {
+			var pid = parseInt(el.value, 10);
+			if (pid) { call('POST', '/rooms/assign', { kind: el.getAttribute('data-kind'), room_id: parseInt(el.getAttribute('data-rid'), 10), participant_ids: [pid] }); }
+			return;
+		}
+		if (el.getAttribute('data-f') && el.getAttribute('data-pid')) { saveCell(el); }
 	});
 	var searchTimer;
 	document.addEventListener('input', function (e) {
 		var el = e.target;
-		if (!root.contains(el) || el.getAttribute('data-role') !== 'search') { return; }
-		clearTimeout(searchTimer);
-		searchTimer = setTimeout(function () {
-			S.search = el.value;
-			render();
-			var s = root.querySelector('[data-role=search]');
-			if (s) { s.focus(); s.setSelectionRange(s.value.length, s.value.length); }
-		}, 200);
+		if (!root.contains(el)) { return; }
+		if (el.getAttribute('data-role') === 'search') {
+			clearTimeout(searchTimer);
+			searchTimer = setTimeout(function () {
+				S.search = el.value;
+				render();
+				var s = root.querySelector('[data-role=search]');
+				if (s) { s.focus(); s.setSelectionRange(s.value.length, s.value.length); }
+			}, 250);
+			return;
+		}
+		var f = el.getAttribute('data-f'), pid = el.getAttribute('data-pid');
+		if (!f || !pid) { return; }
+		if (f === 'birth_date' || f === 'doc_expiry') {
+			var fv = formatDateTyping(el.value);
+			if (fv !== el.value) { el.value = fv; }
+			return;
+		}
+		if (f === 'last_name' || f === 'first_name') {
+			var p = isTemp(pid) ? null : byId(parseInt(pid, 10));
+			if (latManual[pid] || (p && p.lat_manual)) { return; }
+			var target = root.querySelector('[data-pid="' + pid + '"][data-f="' + f + '_lat"]');
+			if (target) { target.value = TR.toLatin(el.value); }
+			return;
+		}
+		if (f === 'last_name_lat' || f === 'first_name_lat') { latManual[pid] = true; el.value = el.value.toUpperCase(); }
+	});
+	document.addEventListener('paste', function (e) {
+		var el = e.target;
+		if (!root.contains(el) || !el.getAttribute('data-f') || readonly()) { return; }
+		var text = (e.clipboardData || window.clipboardData).getData('text');
+		if (text && gridPaste(el, text)) { e.preventDefault(); }
+	});
+	/* Enter in a grid cell moves down like a spreadsheet. */
+	document.addEventListener('keydown', function (e) {
+		var el = e.target;
+		if (e.key !== 'Enter' || !root.contains(el) || !el.getAttribute('data-f') || el.tagName !== 'INPUT') { return; }
+		e.preventDefault();
+		var row = el.closest('tr'), next = row && row.nextElementSibling;
+		if (next) { var cell = next.querySelector('[data-f="' + el.getAttribute('data-f') + '"]'); if (cell) { cell.focus(); return; } }
+		el.blur();
 	});
 
 	/* ------------------------------------------------------------------ */
