@@ -1,0 +1,16 @@
+/* Admin-only tweaks */
+.lgt-wrap .lgt-form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); gap: 16px; margin-top: 12px; }
+.lgt-wrap .lgt-card h2 { font-size: 15px; margin-top: 0; }
+.lgt-wrap .lgt-inline { display: flex; gap: 16px; flex-wrap: wrap; }
+.lgt-wrap .lgt-types-table input[type=text] { width: 100%; }
+.lgt-wrap .lgt-types-table td { vertical-align: middle; }
+.lgt-wrap .lgt-status { display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: 12px; font-weight: 600; background: #e5e7eb; }
+.lgt-wrap .lgt-status-open { background: #dcfce7; color: #15803d; }
+.lgt-wrap .lgt-status-closed { background: #fee2e2; color: #b91c1c; }
+.lgt-wrap .lgt-status-draft { background: #e0ecf8; color: #0f3b66; }
+.lgt-wrap .lgt-status-archived { background: #f3f4f6; color: #6b7280; }
+.lgt-wrap .lgt-trips-table td { vertical-align: middle; }
+.lgt-wrap .lgt-copy { min-width: 30px; }
+.lgt-app-admin { margin-top: 16px; }
+.lgt-wrap .description { color: #646970; font-size: 12px; }
+@media (max-width: 782px) { .lgt-wrap .lgt-form-grid { grid-template-columns: 1fr; } }
