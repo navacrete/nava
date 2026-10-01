@@ -16,6 +16,8 @@ class LGTKS_Evardia {
 	const COOKIE_TRANSIENT = 'lgtks_evardia_cookies';
 	const PAGE_TRANSIENT   = 'lgtks_evardia_page';
 	const DAY_OPTION       = 'lgt_ks_evardia_day';
+	const ROSTER_OPTION    = 'lgt_ks_evardia_roster';
+	const ROSTER_TRANSIENT = 'lgtks_evardia_roster_fresh';
 
 	public static function cfg() {
 		$base = rtrim( trim( (string) LGTKS_Settings::get( 'ev_base_url', 'https://evardia.gr' ) ), '/' );
@@ -109,6 +111,158 @@ class LGTKS_Evardia {
 		return $rows;
 	}
 
+	/* ---------- employee roster (/Ergazomenos): only «Ενεργός = Ναι» are tracked ---------- */
+
+	/** Raw HTML of the employee list page. */
+	public static function get_roster_page() {
+		$cfg             = self::cfg();
+		$cfg['data_url'] = preg_replace( '#/Ergazomenos/EpilektikhApostolh.*$#', '/Ergazomenos', $cfg['data_url'] );
+		return LGTKS_WebLogin::get_data( current_time( 'Y-m-d' ), true, $cfg );
+	}
+
+	/**
+	 * Parse the roster page into {active: [afm => name], inactive: [afm => name], how: string}.
+	 * Accepts the embedded JSON.parse('…') array or a plain HTML table with a column «Ενεργός».
+	 *
+	 * @return array|WP_Error
+	 */
+	public static function parse_roster( $html ) {
+		$out = array( 'active' => array(), 'inactive' => array(), 'how' => '' );
+		$rows = self::parse_page( $html );
+		if ( ! is_wp_error( $rows ) && $rows && is_array( $rows[0] ) ) {
+			// Find the key that holds «Ενεργός».
+			$akey = '';
+			foreach ( array_keys( $rows[0] ) as $k ) {
+				if ( preg_match( '/^(energos|isEnergos|active|isActive|enabled|energ)/i', $k ) ) {
+					$akey = $k;
+					break;
+				}
+			}
+			if ( '' === $akey ) {
+				foreach ( array_keys( $rows[0] ) as $k ) {
+					if ( stripos( $k, 'energ' ) !== false || stripos( $k, 'activ' ) !== false ) {
+						$akey = $k;
+						break;
+					}
+				}
+			}
+			if ( '' !== $akey ) {
+				foreach ( $rows as $r ) {
+					$afm  = preg_replace( '/\D+/', '', (string) ( $r['afm'] ?? '' ) );
+					$name = trim( (string) ( $r['onomateponymo'] ?? trim( ( $r['eponymo'] ?? '' ) . ' ' . ( $r['onoma'] ?? '' ) ) ) );
+					if ( '' === $afm && '' === $name ) {
+						continue;
+					}
+					$out[ self::truthy( $r[ $akey ] ) ? 'active' : 'inactive' ][ '' !== $afm ? $afm : $name ] = $name;
+				}
+				$out['how'] = 'JSON, πεδίο «' . $akey . '»';
+				return $out;
+			}
+			$out['how'] = 'JSON χωρίς αναγνωρίσιμο πεδίο «Ενεργός» (κλειδιά: ' . implode( ', ', array_keys( $rows[0] ) ) . ') – δοκιμή πίνακα HTML';
+		}
+		// HTML table fallback.
+		$table = LGTKS_WebLogin::html_table( $html );
+		if ( is_wp_error( $table ) || ! $table ) {
+			return new WP_Error( 'lgtks', 'Η λίστα εργαζομένων δεν διαβάστηκε (ούτε JSON ούτε πίνακας). ' . $out['how'] );
+		}
+		$hdr  = array_keys( $table[0] );
+		$acol = null;
+		$fcol = null;
+		foreach ( $hdr as $h ) {
+			$n = LGTKS_Source::norm( $h );
+			if ( null === $acol && ( 'ενεργοσ' === $n || strpos( $n, 'ενεργ' ) === 0 ) ) {
+				$acol = $h;
+			}
+			if ( null === $fcol && ( 'αφμ' === $n || 'α φ μ' === $n || 'afm' === $n ) ) {
+				$fcol = $h;
+			}
+		}
+		if ( null === $acol ) {
+			return new WP_Error( 'lgtks', 'Στον πίνακα της λίστας εργαζομένων δεν βρέθηκε στήλη «Ενεργός». Στήλες: ' . implode( ' | ', $hdr ) );
+		}
+		foreach ( $table as $row ) {
+			$afm = null !== $fcol ? preg_replace( '/\D+/', '', (string) $row[ $fcol ] ) : '';
+			if ( '' === $afm ) {
+				foreach ( $row as $v ) {
+					if ( preg_match( '/^\d{9}$/', trim( (string) $v ) ) ) {
+						$afm = trim( (string) $v );
+						break;
+					}
+				}
+			}
+			$name_parts = array();
+			foreach ( $row as $h => $v ) {
+				$n = LGTKS_Source::norm( $h );
+				if ( in_array( $n, array( 'επωνυμο', 'ονομα', 'ονοματεπωνυμο' ), true ) ) {
+					$name_parts[] = trim( (string) $v );
+				}
+			}
+			$name = trim( implode( ' ', $name_parts ) );
+			if ( '' === $afm && '' === $name ) {
+				continue;
+			}
+			$out[ self::truthy( $row[ $acol ] ) ? 'active' : 'inactive' ][ '' !== $afm ? $afm : $name ] = $name;
+		}
+		$out['how'] = 'πίνακας HTML, στήλη «' . $acol . '»' . ( $fcol ? ', ΑΦΜ από «' . $fcol . '»' : '' );
+		return $out;
+	}
+
+	/** «Ναι» / true / 1 / yes -> true; anything else (Όχι, false, 0, empty) -> false. */
+	public static function truthy( $v ) {
+		if ( is_bool( $v ) ) {
+			return $v;
+		}
+		$s = LGTKS_Source::norm( (string) $v );
+		return in_array( $s, array( 'ναι', 'yes', 'true', '1', 'ενεργοσ', 'ενεργη', 'ενεργο' ), true );
+	}
+
+	/**
+	 * Fetch + store the roster (cached for 1 hour). Returns the roster array (possibly stale) or WP_Error.
+	 */
+	public static function sync_roster( $force = false ) {
+		$stored = get_option( self::ROSTER_OPTION );
+		if ( ! $force && get_transient( self::ROSTER_TRANSIENT ) && is_array( $stored ) ) {
+			return $stored;
+		}
+		$html = self::get_roster_page();
+		if ( is_wp_error( $html ) ) {
+			return $html;
+		}
+		$r = self::parse_roster( $html );
+		if ( is_wp_error( $r ) ) {
+			return $r;
+		}
+		$r['fetched_at'] = current_time( 'mysql' );
+		update_option( self::ROSTER_OPTION, $r, false );
+		set_transient( self::ROSTER_TRANSIENT, 1, HOUR_IN_SECONDS );
+		return $r;
+	}
+
+	public static function roster() {
+		$r = get_option( self::ROSTER_OPTION );
+		return is_array( $r ) ? $r : null;
+	}
+
+	/** Is this ΑΦΜ (or name) known as NOT active in eVardia? Unknown => false (not excluded). */
+	public static function is_inactive( $afm, $name, $roster ) {
+		if ( ! is_array( $roster ) || empty( $roster['inactive'] ) ) {
+			return false;
+		}
+		$afm = preg_replace( '/\D+/', '', (string) $afm );
+		if ( '' !== $afm && isset( $roster['inactive'][ $afm ] ) ) {
+			return ! isset( $roster['active'][ $afm ] );
+		}
+		if ( '' === $afm && '' !== $name ) {
+			$nk = LGTKS_Source::norm( $name );
+			foreach ( $roster['inactive'] as $k => $n ) {
+				if ( LGTKS_Source::norm( $n ) === $nk ) {
+					return true;
+				}
+			}
+		}
+		return false;
+	}
+
 	/** "09:03 ✓" / "09:03" -> "09:03", '' when empty. */
 	public static function clean_time( $v ) {
 		return preg_match( '/(\d{1,2}):(\d{2})/', (string) $v, $m ) ? sprintf( '%02d:%02d', $m[1], $m[2] ) : '';
@@ -169,11 +323,29 @@ class LGTKS_Evardia {
 		$today = current_time( 'Y-m-d' );
 		$idx   = LGTKS_Source::employee_index();
 		$auto  = (bool) LGTKS_Settings::get( 'ev_auto_create', 1 );
-		$sum   = array( 'records' => count( $rows ), 'matched' => 0, 'created' => 0, 'new' => 0, 'unmatched' => array() );
+		$sum   = array( 'records' => count( $rows ), 'matched' => 0, 'created' => 0, 'new' => 0, 'inactive_skipped' => 0, 'deactivated' => 0, 'unmatched' => array() );
 		$day   = array();
+		// Roster: employees not marked «Ενεργός = Ναι» in eVardia are ignored completely.
+		$roster = self::sync_roster();
+		if ( is_wp_error( $roster ) ) {
+			LGTKS_DB::log( 'warning', 'Η λίστα εργαζομένων του eVardia δεν διαβάστηκε – χρήση της τελευταίας γνωστής: ' . $roster->get_error_message() );
+			$roster = self::roster();
+		}
 		foreach ( $rows as $r ) {
 			if ( '' !== $r['day'] && $r['day'] !== $today ) {
 				continue; // page shows today; ignore anything else defensively
+			}
+			if ( self::is_inactive( $r['afm'], $r['name'], $roster ) ) {
+				$sum['inactive_skipped']++;
+				$eid = '' !== $r['afm'] ? LGTKS_Source::match( $r['afm'], $idx ) : LGTKS_Source::match( $r['name'], $idx );
+				if ( $eid ) {
+					$e = LGTKS_DB::employee( $eid );
+					if ( $e && (int) $e['active'] === 1 ) {
+						LGTKS_DB::save_employee( array_merge( $e, array( 'active' => 0, 'notes' => trim( $e['notes'] . ' | Ανενεργός στο eVardia' ) ) ), $eid );
+						$sum['deactivated']++;
+					}
+				}
+				continue;
 			}
 			$emp_id = 0;
 			if ( '' !== $r['afm'] ) {
@@ -220,13 +392,21 @@ class LGTKS_Evardia {
 				}
 			}
 		}
+		if ( is_array( $roster ) && ! empty( $roster['inactive'] ) ) {
+			foreach ( LGTKS_DB::employees( true ) as $e ) {
+				if ( '' !== trim( $e['external_id'] ) && self::is_inactive( $e['external_id'], $e['name'], $roster ) ) {
+					LGTKS_DB::save_employee( array_merge( $e, array( 'active' => 0, 'notes' => trim( $e['notes'] . ' | Ανενεργός στο eVardia' ) ) ), $e['id'] );
+					$sum['deactivated']++;
+				}
+			}
+		}
 		update_option( self::DAY_OPTION, array( 'day' => $today, 'fetched_at' => current_time( 'mysql' ), 'rows' => $day ), false );
 		update_option(
 			'lgt_ks_last_sync',
 			array(
 				'at'  => current_time( 'mysql' ),
 				'ok'  => true,
-				'msg' => sprintf( 'eVardia: %d εργαζόμενοι σήμερα, %d νέοι, %d νέα χτυπήματα', $sum['records'], $sum['created'], $sum['new'] ),
+				'msg' => sprintf( 'eVardia: %d εργαζόμενοι σήμερα, %d νέοι, %d νέα χτυπήματα, %d ανενεργοί αγνοήθηκαν', $sum['records'], $sum['created'], $sum['new'], $sum['inactive_skipped'] ),
 			)
 		);
 		LGTKS_DB::log( 'info', 'Συγχρονισμός eVardia', $sum );

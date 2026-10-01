@@ -57,7 +57,7 @@ class LGTKS_Guard {
 
 	/** Paths a GET may touch. */
 	private static function allowed_get_paths() {
-		$paths = array( '/', '/ergazomenos/epilektikhapostolh' );
+		$paths = array( '/', '/ergazomenos', '/ergazomenos/epilektikhapostolh' );
 		foreach ( array( LGTKS_Settings::get( 'ev_login_url' ), LGTKS_Settings::get( 'wl_login_url' ), LGTKS_Settings::get( 'wl_data_url' ) ) as $u ) {
 			$p = strtolower( rtrim( (string) wp_parse_url( (string) $u, PHP_URL_PATH ), '/' ) );
 			if ( '' !== $p ) {

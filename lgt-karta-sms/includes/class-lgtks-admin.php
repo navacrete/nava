@@ -537,7 +537,7 @@ class LGTKS_Admin {
 		self::text( 'ev_password', 'Κωδικός eVardia', 'Αποθηκεύεται στη βάση του WordPress. Αν το eVardia επιτρέπει δεύτερο χρήστη, φτιάξτε έναν μόνο γι’ αυτό. Κενό = διατήρηση του αποθηκευμένου.', 'password', 'autocomplete="new-password"' );
 		self::text( 'ev_ypokatasthma', 'Υποκατάστημα', '<code>0</code> = όλα τα υποκαταστήματα, αλλιώς ο κωδικός από το φίλτρο της σελίδας (π.χ. <code>171</code>).', 'text', 'style="width:90px"' );
 		self::check( 'ev_use_schedule', 'Ωράριο από το eVardia', 'Χρήση του ωραρίου ημέρας του eVardia (Από/Έως) αντί για τα ωράρια που δηλώνετε ανά εργαζόμενο. Όποιος δεν εμφανίζεται στο eVardia σήμερα θεωρείται εκτός βάρδιας.' );
-		self::check( 'ev_auto_create', 'Αυτόματη προσθήκη εργαζομένων', 'Όποιος εμφανίζεται στο eVardia και δεν υπάρχει εδώ προστίθεται αυτόματα με το ΑΦΜ του. Μετά συμπληρώνετε μόνο κινητό/email και κανάλι.' );
+		self::check( 'ev_auto_create', 'Αυτόματη προσθήκη εργαζομένων', 'Όποιος εμφανίζεται στο eVardia και δεν υπάρχει εδώ προστίθεται αυτόματα με το ΑΦΜ του. Μετά συμπληρώνετε μόνο κινητό/email και κανάλι. <strong>Διαβάζεται και η λίστα εργαζομένων (/Ergazomenos): όποιος δεν έχει «Ενεργός = Ναι» αγνοείται εντελώς και, αν υπήρχε, απενεργοποιείται.</strong>' );
 		self::text( 'ev_base_url', 'Διεύθυνση eVardia', 'Κανονικά <code>https://evardia.gr</code>.', 'url' );
 		self::text( 'ev_login_url', 'URL σελίδας login (προαιρετικό)', 'Αφήστε κενό: εντοπίζεται αυτόματα από την ανακατεύθυνση. Συμπληρώστε μόνο αν η δοκιμή αναφέρει ότι δεν βρήκε φόρμα σύνδεσης.', 'url' );
 		echo '</tbody></table></div>';
@@ -694,14 +694,27 @@ class LGTKS_Admin {
 			}
 			$rows  = LGTKS_Evardia::normalize( $rows );
 			$idx   = LGTKS_Source::employee_index();
-			$lines = array( count( $rows ) . ' εργαζόμενοι με βάρδια σήμερα στο eVardia:' );
+			$lines = array();
+			$roster = LGTKS_Evardia::sync_roster( true );
+			if ( is_wp_error( $roster ) ) {
+				$lines[] = 'ΛΙΣΤΑ ΕΡΓΑΖΟΜΕΝΩΝ (/Ergazomenos): ΔΕΝ ΔΙΑΒΑΣΤΗΚΕ – ' . $roster->get_error_message();
+				$lines[] = '  (Χωρίς αυτήν δεν φιλτράρονται οι ανενεργοί. Στείλτε τη σελίδα /Ergazomenos αποθηκευμένη ως HTML.)';
+			} else {
+				$lines[] = sprintf( 'ΛΙΣΤΑ ΕΡΓΑΖΟΜΕΝΩΝ (/Ergazomenos): %d ενεργοί, %d ανενεργοί – ανάγνωση: %s', count( $roster['active'] ), count( $roster['inactive'] ), $roster['how'] );
+				if ( $roster['inactive'] ) {
+					$lines[] = '  Αγνοούνται (Ενεργός ≠ Ναι): ' . implode( ', ', array_map( function ( $k, $v ) { return $v . ' (' . $k . ')'; }, array_keys( $roster['inactive'] ), $roster['inactive'] ) );
+				}
+			}
+			$lines[] = '';
+			$lines[] = count( $rows ) . ' εργαζόμενοι με βάρδια σήμερα στο eVardia:';
 			foreach ( $rows as $r ) {
 				$sh = array();
 				foreach ( $r['shifts'] as $s ) {
 					$sh[] = $s['start'] . '-' . $s['end'] . ( $s['in'] ? ' προσ. ' . $s['in'] : ' (χωρίς χτύπημα)' ) . ( $s['out'] ? ' αποχ. ' . $s['out'] : '' );
 				}
 				$m       = LGTKS_Source::match( $r['afm'] ?: $r['name'], $idx );
-				$lines[] = sprintf( '%-32s %-11s %-40s %s', $r['name'], $r['afm'], implode( ' | ', $sh ), $m ? 'υπάρχει (#' . $m . ')' : 'ΝΕΟΣ – θα προστεθεί στον συγχρονισμό' );
+				$inact   = ! is_wp_error( $roster ) && LGTKS_Evardia::is_inactive( $r['afm'], $r['name'], $roster );
+				$lines[] = sprintf( '%-32s %-11s %-40s %s', $r['name'], $r['afm'], implode( ' | ', $sh ), $inact ? 'ΑΝΕΝΕΡΓΟΣ – αγνοείται' : ( $m ? 'υπάρχει (#' . $m . ')' : 'ΝΕΟΣ – θα προστεθεί στον συγχρονισμό' ) );
 			}
 			set_transient( 'lgtks_test_' . get_current_user_id(), array( 'title' => 'eVardia – δοκιμή επιτυχής', 'body' => implode( "\n", $lines ) ), 120 );
 			self::back( 'settings', 'Η σύνδεση στο eVardia πέτυχε. Πατήστε «Έλεγχος τώρα» στη σελίδα «Σήμερα» για να προστεθούν οι εργαζόμενοι.' );
