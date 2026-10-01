@@ -98,8 +98,22 @@ class LGTKS_Admin {
 	}
 
 	public static function target_label( $t ) {
-		$map = array( 'both' => 'Εργαζόμενος + Υπεύθυνος', 'employee' => 'Μόνο εργαζόμενος', 'manager' => 'Μόνο υπεύθυνος', 'none' => 'Κανείς (εξαιρείται)' );
+		$map = array( 'both' => 'Ίδιος: ΝΑΙ · Υπεύθυνος: ΝΑΙ', 'employee' => 'Ίδιος: ΝΑΙ · Υπεύθυνος: ΟΧΙ', 'manager' => 'Ίδιος: ΟΧΙ · Υπεύθυνος: ΝΑΙ', 'none' => 'Ίδιος: ΟΧΙ · Υπεύθυνος: ΟΧΙ (πλήρης εξαίρεση)' );
 		return isset( $map[ $t ] ) ? $map[ $t ] : $t;
+	}
+
+	/** Two independent switches -> stored target. */
+	public static function target_from_flags( $emp, $mgr ) {
+		if ( $emp && $mgr ) {
+			return 'both';
+		}
+		if ( $emp ) {
+			return 'employee';
+		}
+		if ( $mgr ) {
+			return 'manager';
+		}
+		return 'none';
 	}
 
 	private static function notif_channel_label( $c ) {
@@ -283,12 +297,13 @@ class LGTKS_Admin {
 		echo '<tr><th>Ονοματεπώνυμο</th><td><input type="text" name="name" class="regular-text" required value="' . esc_attr( $edit['name'] ?? '' ) . '"></td></tr>';
 		echo '<tr><th>Κινητό</th><td><input type="text" name="mobile" class="regular-text" value="' . esc_attr( $edit['mobile'] ?? '' ) . '" placeholder="69xxxxxxxx"></td></tr>';
 		echo '<tr><th>Email</th><td><input type="email" name="email" class="regular-text" value="' . esc_attr( $edit['email'] ?? '' ) . '"></td></tr>';
-		$tg = $edit['notify_target'] ?? 'both';
-		echo '<tr><th>Ποιος ειδοποιείται όταν δεν χτυπήσει</th><td><select name="notify_target">';
-		foreach ( array( 'both', 'employee', 'manager', 'none' ) as $t ) {
-			echo '<option value="' . esc_attr( $t ) . '" ' . selected( $tg, $t, false ) . '>' . esc_html( self::target_label( $t ) ) . '</option>';
-		}
-		echo '</select><p class="description">«Κανείς»: ο εργαζόμενος φαίνεται στον πίνακα «Σήμερα» αλλά δεν στέλνεται καμία αυτόματη ειδοποίηση, ούτε σε αυτόν ούτε στον υπεύθυνο. Η επιλογή αποθηκεύεται και φαίνεται στη λίστα εξαιρέσεων παρακάτω.</p></td></tr>';
+		$tg      = $edit['notify_target'] ?? 'both';
+		$f_emp   = in_array( $tg, array( 'both', 'employee' ), true );
+		$f_mgr   = in_array( $tg, array( 'both', 'manager' ), true );
+		echo '<tr><th>Όταν δεν χτυπήσει κάρτα</th><td>';
+		echo '<p><label><input type="checkbox" name="notify_employee" value="1" ' . checked( $f_emp, true, false ) . '> <strong>Ειδοποιείται ο ίδιος ο εργαζόμενος</strong></label></p>';
+		echo '<p><label><input type="checkbox" name="notify_manager" value="1" ' . checked( $f_mgr, true, false ) . '> <strong>Ειδοποιείται ο υπεύθυνος γι’ αυτόν τον εργαζόμενο</strong></label></p>';
+		echo '<p class="description">Οι δύο επιλογές είναι ανεξάρτητες: π.χ. για τον διευθυντή αφήστε μόνο την πρώτη (ή καμία). Με καμία επιλεγμένη ο εργαζόμενος φαίνεται στον πίνακα «Σήμερα» αλλά δεν ειδοποιείται κανείς. Οι επιλογές αποθηκεύονται ανά εργαζόμενο και φαίνονται στη λίστα εξαιρέσεων παρακάτω.</p></td></tr>';
 		$ch = $edit['notify_channel'] ?? 'sms';
 		echo '<tr><th>Κανάλι προς τον εργαζόμενο</th><td><select name="notify_channel">';
 		foreach ( array( 'sms', 'email', 'both' ) as $c ) {
@@ -328,19 +343,21 @@ class LGTKS_Admin {
 		$excluded = array();
 		foreach ( $list as $e ) {
 			if ( 'none' === $e['notify_target'] ) {
-				$excluded[] = $e['name'];
+				$excluded[] = $e['name'] . ' (κανείς)';
 			} elseif ( 'manager' === $e['notify_target'] ) {
-				$excluded[] = $e['name'] . ' (μόνο υπεύθυνος)';
+				$excluded[] = $e['name'] . ' (όχι ο ίδιος, μόνο υπεύθυνος)';
+			} elseif ( 'employee' === $e['notify_target'] ) {
+				$excluded[] = $e['name'] . ' (όχι ο υπεύθυνος, μόνο ο ίδιος)';
 			}
 		}
-		echo '<div class="lgtks-section"><h2>Εξαιρέσεις από ειδοποιήσεις</h2><p>' . ( $excluded ? esc_html( implode( ', ', $excluded ) ) : 'Καμία – όλοι οι εργαζόμενοι ειδοποιούνται κανονικά.' ) . '</p></div>';
-		echo '<table class="widefat striped"><thead><tr><th>Όνομα</th><th>Κινητό / Email</th><th>Ειδοποιείται</th><th>Κωδικός</th>';
+		echo '<div class="lgtks-section"><h2>Εξαιρέσεις από ειδοποιήσεις</h2><p>' . ( $excluded ? esc_html( implode( ' · ', $excluded ) ) : 'Καμία – για όλους ειδοποιούνται και ο ίδιος και ο υπεύθυνος.' ) . '</p></div>';
+		echo '<table class="widefat striped"><thead><tr><th>Όνομα</th><th>Κινητό / Email</th><th>Ειδοπ. ίδιος</th><th>Ειδοπ. υπεύθυνος</th><th>Κωδικός</th>';
 		foreach ( $days as $l ) {
 			echo '<th>' . esc_html( $l ) . '</th>';
 		}
 		echo '<th>Ενεργός</th><th></th></tr></thead><tbody>';
 		foreach ( $list as $e ) {
-			echo '<tr><td><strong>' . esc_html( $e['name'] ) . '</strong></td><td>' . esc_html( $e['mobile'] ) . ( $e['email'] ? '<br><small>' . esc_html( $e['email'] ) . '</small>' : '' ) . '</td><td>' . ( 'none' === $e['notify_target'] ? '<span class="lgtks-status off">Εξαιρείται</span>' : esc_html( self::target_label( $e['notify_target'] ) . ( in_array( $e['notify_target'], array( 'both', 'employee' ), true ) ? ' · ' . self::channel_label( $e['notify_channel'] ) : '' ) ) ) . '</td><td>' . esc_html( $e['external_id'] ) . '</td>';
+			echo '<tr><td><strong>' . esc_html( $e['name'] ) . '</strong></td><td>' . esc_html( $e['mobile'] ) . ( $e['email'] ? '<br><small>' . esc_html( $e['email'] ) . '</small>' : '' ) . '</td><td>' . ( in_array( $e['notify_target'], array( 'both', 'employee' ), true ) ? '<span class="lgtks-status present">ΝΑΙ</span> <small>' . esc_html( self::channel_label( $e['notify_channel'] ) ) . '</small>' : '<span class="lgtks-status off">ΟΧΙ</span>' ) . '</td><td>' . ( in_array( $e['notify_target'], array( 'both', 'manager' ), true ) ? '<span class="lgtks-status present">ΝΑΙ</span>' : '<span class="lgtks-status off">ΟΧΙ</span>' ) . '</td><td>' . esc_html( $e['external_id'] ) . '</td>';
 			foreach ( $days as $d => $l ) {
 				echo '<td>' . ( ! empty( $e['schedule'][ $d ] ) ? esc_html( $e['schedule'][ $d ] ) : '<span style="color:#aaa">—</span>' ) . '</td>';
 			}
@@ -349,7 +366,7 @@ class LGTKS_Admin {
 			echo '</td></tr>';
 		}
 		if ( ! $list ) {
-			echo '<tr><td colspan="13">Κανένας εργαζόμενος ακόμη.</td></tr>';
+			echo '<tr><td colspan="14">Κανένας εργαζόμενος ακόμη.</td></tr>';
 		}
 		echo '</tbody></table></div>';
 	}
@@ -362,7 +379,10 @@ class LGTKS_Admin {
 			self::back( 'employees', 'Το ονοματεπώνυμο είναι υποχρεωτικό.', 'error' );
 		}
 		$ch = $data['notify_channel'] ?? 'sms';
-		$tg = $data['notify_target'] ?? 'both';
+		if ( ! isset( $data['notify_target'] ) ) {
+			$data['notify_target'] = self::target_from_flags( ! empty( $data['notify_employee'] ), ! empty( $data['notify_manager'] ) );
+		}
+		$tg = $data['notify_target'];
 		if ( in_array( $tg, array( 'both', 'employee' ), true ) ) {
 			if ( 'sms' === $ch && empty( $data['mobile'] ) ) {
 				self::back( 'employees', 'Για ειδοποίηση με SMS χρειάζεται κινητό (ή αλλάξτε κανάλι/παραλήπτη).', 'error' );
