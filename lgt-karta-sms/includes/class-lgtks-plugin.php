@@ -20,6 +20,7 @@ class LGTKS_Plugin {
 	private function __construct() {
 		LGTKS_Install::maybe_upgrade();
 		LGTKS_Guard::init();
+		LGTKS_Health::init();
 		LGTKS_Cron::init();
 		LGTKS_REST::init();
 		if ( is_admin() ) {

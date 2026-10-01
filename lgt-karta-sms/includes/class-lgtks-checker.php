@@ -100,6 +100,7 @@ class LGTKS_Checker {
 
 		$day     = LGTKS_Settings::now( 'Y-m-d' );
 		$summary = array( 'day' => $day, 'due' => 0, 'sent' => 0, 'failed' => 0, 'sync' => null );
+		LGTKS_Health::record_run();
 		try {
 			$rows   = self::status_for_day( $day );
 			$anyDue = false;
@@ -125,6 +126,16 @@ class LGTKS_Checker {
 			}
 			$now_ts = LGTKS_Settings::now_ts();
 			$escal  = (int) LGTKS_Settings::get( 'manager_escalation_minutes', 60 );
+			// When the eVardia sync is failing, the status is stale: do not notify anyone on stale data.
+			$health = LGTKS_Health::state();
+			if ( 'evardia' === LGTKS_Settings::get( 'source_type' ) && ! empty( $health['sync_fail_since'] ) ) {
+				$summary['suspended'] = 'sync-failing';
+				$rows                 = array();
+			}
+			if ( $rows && LGTKS_Health::suspected_outage( $rows ) ) {
+				$summary['suspended'] = 'suspected-outage';
+				$rows                 = array(); // no employee/manager notifications this run
+			}
 			foreach ( $rows as $r ) {
 				if ( 'due' !== $r['status'] ) {
 					continue;

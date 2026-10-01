@@ -69,6 +69,14 @@ support@yuboto.com. Το plugin επιλέγει αυτόματα `typesms: unic
 Υπάρχει «Δοκιμαστικό SMS» που δείχνει την απάντηση του παρόχου. Το Sender ID (π.χ. `LeGrand`)
 πρέπει να έχει εγκριθεί στον πάροχο.
 
+## Υγεία συστήματος (μόνο προς το email τεχνικού)
+
+`LGTKS_Health`: (1) αν ο συγχρονισμός eVardia αποτυγχάνει πάνω από 30′ (π.χ. άλλαξε ο κωδικός), email
+στον τεχνικό και αναστολή ειδοποιήσεων μέχρι να αποκατασταθεί (email και τότε)· (2) αν ο έλεγχος δεν
+έχει τρέξει για 60′ τις ώρες 07:00–22:00 (νεκρό WP-Cron), email, ελεγχόμενο από τις επισκέψεις του
+site· (3) «ύποπτη βλάβη»: κανένα χτύπημα ενώ ≥3 βάρδιες είναι ήδη εκπρόθεσμες → email και αναστολή
+όλων των SMS μέχρι το πρώτο χτύπημα, οπότε συνεχίζουν κανονικά για όσους ακόμη εκκρεμούν.
+
 ## Μόνο ανάγνωση από το eVardia (τεχνική εγγύηση)
 
 Η κλάση `LGTKS_Guard` συνδέεται στο φίλτρο `pre_http_request` του WordPress και ελέγχει **κάθε**
@@ -104,6 +112,7 @@ support@yuboto.com. Το plugin επιλέγει αυτόματα `typesms: unic
 lgt-karta-sms.php                 bootstrap
 includes/class-lgtks-install.php  πίνακες (employees, punches, notifications, log), cron
 includes/class-lgtks-settings.php ρυθμίσεις, ζώνη ώρας, headers
+includes/class-lgtks-health.php    φρουροί υγείας: eVardia down, cron νεκρό, ύποπτη βλάβη → email τεχνικού
 includes/class-lgtks-holidays.php  ελληνικές αργίες ιδιωτικού τομέα ανά έτος (ορθόδοξο Πάσχα)
 includes/class-lgtks-db.php       εργαζόμενοι, χτυπήματα, ειδοποιήσεις, log
 includes/class-lgtks-source.php   λήψη χτυπημάτων: JSON API / CSV / webhook, αντιστοίχιση

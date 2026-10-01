@@ -47,6 +47,10 @@ class LGTKS_Settings {
 			'holiday_mode'             => 'skip',
 			'country_prefix'           => '30',
 			'timezone'                 => 'Europe/Athens',
+			'tech_email'               => get_option( 'admin_email' ),
+			'health_sync_minutes'      => 30,
+			'health_cron_minutes'      => 60,
+			'outage_min_due'           => 3,
 			// SMS provider.
 			'sms_provider'             => 'yuboto',
 			'sms_sender'               => 'LeGrand',

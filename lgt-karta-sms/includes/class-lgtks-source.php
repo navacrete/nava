@@ -36,6 +36,9 @@ class LGTKS_Source {
 			if ( is_wp_error( $res ) ) {
 				LGTKS_DB::log( 'error', 'Συγχρονισμός eVardia απέτυχε: ' . $res->get_error_message() );
 				update_option( 'lgt_ks_last_sync', array( 'at' => LGTKS_Settings::now( 'Y-m-d H:i:s' ), 'ok' => false, 'msg' => $res->get_error_message() ) );
+				LGTKS_Health::record_sync_result( false, $res->get_error_message() );
+			} else {
+				LGTKS_Health::record_sync_result( true );
 			}
 			return $res;
 		}

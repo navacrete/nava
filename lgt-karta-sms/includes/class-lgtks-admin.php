@@ -117,7 +117,7 @@ class LGTKS_Admin {
 	}
 
 	private static function notif_channel_label( $c ) {
-		$map = array( 'sms' => 'SMS', 'email' => 'Email', 'manager' => 'Υπεύθυνος (SMS)', 'manager_email' => 'Υπεύθυνος (Email)', 'manager_summary' => 'Υπεύθυνοι – συνολική κατάσταση (email)', 'manager_digest' => 'Υπεύθυνοι – συγκεντρωτικό SMS', 'punch_email' => 'Email χτυπήματος', 'anomaly_email' => 'Διπλή προσέλευση (email)' );
+		$map = array( 'sms' => 'SMS', 'email' => 'Email', 'manager' => 'Υπεύθυνος (SMS)', 'manager_email' => 'Υπεύθυνος (Email)', 'manager_summary' => 'Υπεύθυνοι – συνολική κατάσταση (email)', 'manager_digest' => 'Υπεύθυνοι – συγκεντρωτικό SMS', 'punch_email' => 'Email χτυπήματος', 'anomaly_email' => 'Διπλή προσέλευση (email)', 'tech' => 'Τεχνικός – υγεία συστήματος' );
 		return isset( $map[ $c ] ) ? $map[ $c ] : $c;
 	}
 
@@ -165,6 +165,7 @@ class LGTKS_Admin {
 		echo '<div class="lgtks-card"><h3>Σε αναμονή</h3><div class="big">' . (int) $counts['not_yet'] . '</div></div>';
 		echo '<div class="lgtks-card"><h3>Τελευταίος έλεγχος</h3><div>' . ( $last_run ? esc_html( $last_run['at'] ) : '—' ) . '</div>';
 		echo '<div style="color:#646970">Επόμενος (WP-Cron): ' . ( $next ? esc_html( LGTKS_Settings::fmt( 'H:i', $next ) ) : '—' ) . '</div></div>';
+		echo '<div class="lgtks-card"><h3>Υγεία συστήματος</h3><div style="font-size:12px">' . implode( '<br>', array_map( 'esc_html', LGTKS_Health::summary_lines() ) ) . '</div></div>';
 		echo '<div class="lgtks-card"><h3>Τελευταίος συγχρονισμός πηγής</h3><div>' . ( $last_sync ? esc_html( $last_sync['at'] . ' – ' . $last_sync['msg'] ) : '—' ) . '</div>';
 		$dstate = get_option( 'lgt_ks_digest_sent', array() );
 		$dl     = array();
@@ -637,6 +638,12 @@ class LGTKS_Admin {
 		echo '<div class="lgtks-source" data-s="manual"><p class="description">Τα χτυπήματα σημειώνονται μόνο με το χέρι από τον πίνακα «Σήμερα». Το SMS στέλνεται σε όσους δεν έχουν σημειωθεί μέχρι το όριο.</p></div>';
 		echo '</div>';
 
+		echo '<div class="lgtks-section"><h2>Τεχνικός – υγεία συστήματος</h2><table class="form-table"><tbody>';
+		self::text( 'tech_email', 'Email τεχνικού', 'Μόνο εδώ πηγαίνουν οι τεχνικές ειδοποιήσεις: αποτυχία σύνδεσης eVardia, cron που δεν τρέχει, ύποπτη βλάβη. Οι υπεύθυνοι δεν τις βλέπουν.', 'email' );
+		self::text( 'health_sync_minutes', 'Ειδοποίηση αν το eVardia αποτυγχάνει πάνω από (λεπτά)', 'Π.χ. αλλαγή κωδικού. Όσο αποτυγχάνει, δεν στέλνονται ειδοποιήσεις σε εργαζόμενους (τα δεδομένα θα ήταν παλιά). Στέλνεται και email αποκατάστασης.', 'number', 'min="5" max="1440" style="width:90px"' );
+		self::text( 'health_cron_minutes', 'Ειδοποίηση αν ο έλεγχος δεν τρέξει για (λεπτά)', 'Ελέγχεται σε κάθε επίσκεψη στο site (07:00–22:00). Αν το WP-Cron «κολλήσει», το μαθαίνετε την ίδια μέρα.', 'number', 'min="10" max="1440" style="width:90px"' );
+		self::text( 'outage_min_due', 'Ύποπτη βλάβη: εκκρεμείς βάρδιες χωρίς κανένα χτύπημα', 'Αν τόσοι ή περισσότεροι έχουν περάσει την ώρα έναρξης και <strong>κανείς</strong> δεν έχει χτυπήσει, θεωρείται βλάβη (eVardia/ρολόι): email στον τεχνικό και αναστολή όλων των ειδοποιήσεων μέχρι το πρώτο χτύπημα. 0 = απενεργοποίηση.', 'number', 'min="0" max="100" style="width:90px"' );
+		echo '</tbody></table></div>';
 		echo '<div class="lgtks-section"><h2>Μόνο ανάγνωση από το eVardia (φρουρός)</h2>';
 		echo '<p>Το plugin <strong>δεν μπορεί</strong> να αλλάξει τίποτα στο eVardia. Ένας φρουρός σε επίπεδο HTTP του WordPress ελέγχει κάθε αίτημα προς τους διακομιστές: <code>' . esc_html( implode( ', ', LGTKS_Guard::hosts() ) ) . '</code>. Επιτρέπονται μόνο: <strong>GET</strong> στη σελίδα «Επιλεκτική αποστολή», στην αρχική και στη σελίδα σύνδεσης, και <strong>ένα POST</strong>, αυτό της φόρμας σύνδεσης με όνομα χρήστη/κωδικό. Κάθε άλλο αίτημα (οποιοδήποτε POST προς αποστολή, διαγραφή, ρυθμίσεις κ.λπ.) αποκλείεται πριν φύγει από τον server και καταγράφεται ως σφάλμα, ακόμη κι αν προερχόταν από bug του plugin. Το κουμπί «Δοκιμή πηγής» και ο συγχρονισμός χρησιμοποιούν αποκλειστικά αυτά.</p>';
 		$trail = LGTKS_Guard::trail();
