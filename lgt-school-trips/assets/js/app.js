@@ -206,7 +206,9 @@
 			html += '<div class="lgt-submit-row"><span class="lgt-status-text" id="lgt-save-status"></span><span class="lgt-spacer"></span><button type="button" class="lgt-btn lgt-secondary" data-act="print">Εκτύπωση</button><a class="lgt-btn lgt-secondary" href="' + h(dlUrl('xlsx')) + '">Excel</a><a class="lgt-btn lgt-secondary" href="' + h(dlUrl('pdf')) + '">PDF</a><button type="button" class="lgt-btn lgt-primary lgt-big" data-act="submit">' + (isAdmin() ? '📨 Αποστολή αρχείων στο γραφείο' : '📨 Υποβολή στο ' + h((S.config.company && S.config.company.name) || 'γραφείο')) + '</button></div>';
 			html += '<p class="lgt-hint">' + (isAdmin() ? 'Στέλνει τα τρέχοντα Excel/PDF στα email του γραφείου.' : 'Η φόρμα αποθηκεύεται αυτόματα όσο γράφετε. Με την «Υποβολή» το γραφείο λαμβάνει τη λίστα σας σε Excel και PDF και εσείς επιβεβαίωση με email.') + '</p>';
 		}
-		html += '</section></main>';
+		html += '</section>';
+		html += '<p class="lgt-credit">Created by Ioannis Fanourakis</p>';
+		html += '</main>';
 		root.innerHTML = html;
 		renderFormRows();
 		renderColumns('hotel'); renderColumns('cabin');

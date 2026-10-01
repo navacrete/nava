@@ -91,6 +91,7 @@
 .lgt-toast { background: #1f2937; color: #fff; padding: 10px 16px; border-radius: 8px; box-shadow: 0 6px 20px rgba(0,0,0,.25); font-size: 13.5px; max-width: 380px; }
 .lgt-toast-ok { background: var(--lgt-ok); }
 .lgt-toast-err { background: var(--lgt-danger); }
+.lgt-credit { padding: 0 32px 28px; margin: 0; color: var(--lgt-muted); font-size: .95rem; }
 .lgt-footer { text-align: center; color: var(--lgt-muted); font-size: 12px; padding: 24px 0 8px; }
 /* access-code / inactive pages */
 .lgt-card { background: var(--lgt-panel); border: 1px solid var(--lgt-line); border-radius: 20px; padding: 28px; box-shadow: var(--lgt-shadow); max-width: 480px; margin: 40px auto; text-align: center; }
@@ -101,7 +102,7 @@
 @media (max-width: 1100px) { .lgt-meta { grid-template-columns: repeat(2, minmax(150px, 1fr)); } .lgt-column { min-height: auto; } }
 @media (max-width: 720px) {
 	.lgt-portal-body { padding: 12px 8px; }
-	.lgt-hero, .lgt-actions, .lgt-meta, .lgt-totals, .lgt-sheet, .lgt-table-wrap, .lgt-block-head, .lgt-submit, .lgt-adminbar { padding-left: 16px; padding-right: 16px; }
+	.lgt-hero, .lgt-actions, .lgt-meta, .lgt-totals, .lgt-sheet, .lgt-table-wrap, .lgt-block-head, .lgt-submit, .lgt-adminbar, .lgt-credit { padding-left: 16px; padding-right: 16px; }
 	.lgt-meta { grid-template-columns: 1fr; }
 	.lgt-slot { max-width: 100%; }
 	.lgt-table { min-width: 0; }
