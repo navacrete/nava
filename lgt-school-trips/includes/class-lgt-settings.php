@@ -32,30 +32,8 @@ class LGT_Settings {
 			'attach_xlsx'          => 1,
 			'attach_pdf'           => 1,
 			'daily_digest'         => 1,
-			'ferry_doc_required'   => 1,
-			'default_nationality'  => 'GR',
-			'pdf_orientation'      => 'P',
+			'close_on_submit'      => 0,
 			'delete_on_uninstall'  => 0,
-			'default_room_types'   => wp_json_encode( self::default_room_types() ),
-			'default_cabin_types'  => wp_json_encode( self::default_cabin_types() ),
-		);
-	}
-
-	public static function default_room_types() {
-		return array(
-			array( 'code' => 'SGL', 'label' => 'Μονόκλινο', 'capacity' => 1 ),
-			array( 'code' => 'DBL', 'label' => 'Δίκλινο', 'capacity' => 2 ),
-			array( 'code' => 'TRPL', 'label' => 'Τρίκλινο', 'capacity' => 3 ),
-			array( 'code' => 'QUAD', 'label' => 'Τετράκλινο', 'capacity' => 4 ),
-		);
-	}
-
-	public static function default_cabin_types() {
-		return array(
-			array( 'code' => 'AB2', 'label' => 'Δίκλινη εσωτερική (AB2)', 'capacity' => 2 ),
-			array( 'code' => 'AB3', 'label' => 'Τρίκλινη εσωτερική (AB3)', 'capacity' => 3 ),
-			array( 'code' => 'AB4', 'label' => 'Τετράκλινη εσωτερική (AB4)', 'capacity' => 4 ),
-			array( 'code' => 'A4', 'label' => 'Τετράκλινη εξωτερική (A4)', 'capacity' => 4 ),
 		);
 	}
 
@@ -117,31 +95,4 @@ class LGT_Settings {
 		return array_values( $days );
 	}
 
-	/** Decode JSON room/cabin type lists, sanitising shape. */
-	public static function sanitize_types( $raw, $fallback ) {
-		if ( is_string( $raw ) ) {
-			$raw = json_decode( $raw, true );
-		}
-		if ( ! is_array( $raw ) ) {
-			return $fallback;
-		}
-		$out = array();
-		foreach ( $raw as $t ) {
-			if ( ! is_array( $t ) ) {
-				continue;
-			}
-			$code = strtoupper( sanitize_text_field( $t['code'] ?? '' ) );
-			$cap  = (int) ( $t['capacity'] ?? 0 );
-			if ( '' === $code || $cap < 1 || $cap > 12 ) {
-				continue;
-			}
-			$out[] = array(
-				'code'     => $code,
-				'label'    => sanitize_text_field( $t['label'] ?? $code ),
-				'capacity' => $cap,
-				'quota'    => isset( $t['quota'] ) && '' !== $t['quota'] ? max( 0, (int) $t['quota'] ) : null,
-			);
-		}
-		return $out ? $out : $fallback;
-	}
 }

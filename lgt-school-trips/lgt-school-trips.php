@@ -2,8 +2,8 @@
 /**
  * Plugin Name: LGT School Trips – Σχολικές Εκδρομές
  * Plugin URI:  https://legrandtravel.gr
- * Description: Πλατφόρμα σχολικών εκδρομών: καταχώρηση μαθητών από τα σχολεία, rooming lists ξενοδοχείων (λατινικά), καμπίνες πλοίου, λίστες αεροπορικών, αυτόματη αποστολή Excel/PDF, υπενθυμίσεις.
- * Version:     1.0.0
+ * Description: Οι φόρμες LeGrand (ονόματα & rooming list) online: στέλνετε σύνδεσμο στο σχολείο, συμπληρώνει, πατά Υποβολή και λαμβάνετε Excel/PDF με email. Υπενθυμίσεις πριν την εκδρομή.
+ * Version:     2.0.0
  * Author:      Le Grand Travel
  * Author URI:  https://legrandtravel.gr
  * Text Domain: lgt-school-trips
@@ -17,8 +17,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'LGT_ST_VERSION', '1.0.0' );
-define( 'LGT_ST_DB_VERSION', '1.0.0' );
+define( 'LGT_ST_VERSION', '2.0.0' );
+define( 'LGT_ST_DB_VERSION', '2.0.0' );
 define( 'LGT_ST_FILE', __FILE__ );
 define( 'LGT_ST_DIR', plugin_dir_path( __FILE__ ) );
 define( 'LGT_ST_URL', plugin_dir_url( __FILE__ ) );

@@ -20,9 +20,8 @@ $company = LGT_Settings::get( 'company_name' );
 <link rel="stylesheet" href="<?php echo esc_url( LGT_ST_URL . 'assets/css/app.css?v=' . LGT_ST_VERSION ); ?>">
 </head>
 <body class="lgt-portal-body">
-<div class="lgt-portal-shell lgt-narrow">
-	<div class="lgt-card lgt-center-card">
-		<div class="lgt-portal-logo lgt-big"><?php echo esc_html( mb_substr( $company, 0, 1 ) ); ?></div>
+<div class="lgt-card">
+		<div class="lgt-brand-logo" style="margin:0 auto 14px"><?php echo esc_html( mb_substr( $company, 0, 1 ) ); ?></div>
 		<h1><?php echo esc_html( $trip['title'] ); ?></h1>
 		<p class="lgt-muted"><?php echo esc_html( $trip['school_name'] ); ?></p>
 		<p>Εισάγετε τον κωδικό πρόσβασης που σας έστειλε το γραφείο.</p>
@@ -31,10 +30,9 @@ $company = LGT_Settings::get( 'company_name' );
 		<?php endif; ?>
 		<form method="post">
 			<?php wp_nonce_field( 'lgt_access_' . $trip['id'] ); ?>
-			<input class="lgt-input lgt-input-lg" type="text" name="lgt_access_code" autocomplete="off" autofocus placeholder="Κωδικός">
-			<button class="lgt-btn lgt-btn-primary lgt-btn-block" type="submit">Είσοδος</button>
+			<input class="lgt-input-lg" type="text" name="lgt_access_code" autocomplete="off" autofocus placeholder="Κωδικός">
+			<button class="lgt-btn lgt-primary lgt-btn-block" type="submit">Είσοδος</button>
 		</form>
 	</div>
-</div>
 </body>
 </html>

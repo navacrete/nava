@@ -22,29 +22,6 @@
 			e.preventDefault();
 			return;
 		}
-		var rm = e.target.closest('.lgt-row-remove');
-		if (rm) {
-			e.preventDefault();
-			rm.closest('tr').remove();
-			return;
-		}
-		var add = e.target.closest('.lgt-row-add');
-		if (add) {
-			e.preventDefault();
-			var editor = add.closest('.lgt-types-editor');
-			var name = editor.getAttribute('data-name');
-			var tbody = editor.querySelector('tbody');
-			var idx = Date.now() % 100000;
-			var tr = document.createElement('tr');
-			tr.innerHTML =
-				'<td><input type="text" name="' + name + '[' + idx + '][code]" class="small-text" style="width:70px" placeholder="DBL"></td>' +
-				'<td><input type="text" name="' + name + '[' + idx + '][label]" placeholder="Περιγραφή"></td>' +
-				'<td><input type="number" min="1" max="12" name="' + name + '[' + idx + '][capacity]" value="2" class="small-text"></td>' +
-				'<td><input type="number" min="0" name="' + name + '[' + idx + '][quota]" class="small-text" placeholder="—"></td>' +
-				'<td><button type="button" class="button-link lgt-row-remove" title="Αφαίρεση">✕</button></td>';
-			tbody.appendChild(tr);
-			return;
-		}
 		if (e.target.id === 'lgt-logo-pick' && window.wp && wp.media) {
 			e.preventDefault();
 			var frame = wp.media({ title: 'Επιλογή λογοτύπου (JPG)', multiple: false, library: { type: 'image/jpeg' } });

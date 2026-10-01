@@ -23,7 +23,6 @@ class LGT_Plugin {
 		add_action( 'init', array( 'LGT_Portal', 'register_rewrites' ) );
 		add_filter( 'query_vars', array( 'LGT_Portal', 'query_vars' ) );
 		add_action( 'template_redirect', array( 'LGT_Portal', 'maybe_render' ), 1 );
-		add_shortcode( 'lgt_school_portal', array( 'LGT_Portal', 'shortcode' ) );
 
 		add_action( 'rest_api_init', array( 'LGT_Rest', 'register_routes' ) );
 

@@ -145,21 +145,4 @@ class LGT_Portal {
 		return $cfg;
 	}
 
-	public static function shortcode( $atts ) {
-		$token = isset( $_GET['t'] ) ? sanitize_text_field( wp_unslash( $_GET['t'] ) ) : '';
-		if ( ! $token ) {
-			return '<p>Χρησιμοποιήστε τον σύνδεσμο που σας έστειλε το γραφείο.</p>';
-		}
-		$trip = LGT_DB::get_trip_by_token( $token );
-		if ( ! $trip || ! in_array( $trip['status'], array( 'open', 'closed' ), true ) ) {
-			return '<p>Ο σύνδεσμος δεν είναι ενεργός.</p>';
-		}
-		if ( $trip['access_code'] && ! self::access_cookie_valid( $trip ) ) {
-			return '<p><a href="' . esc_url( self::url( $trip ) ) . '">Συνεχίστε στην πλατφόρμα</a></p>';
-		}
-		wp_enqueue_style( 'lgt-app', LGT_ST_URL . 'assets/css/app.css', array(), LGT_ST_VERSION );
-		wp_enqueue_script( 'lgt-app', LGT_ST_URL . 'assets/js/app.js', array(), LGT_ST_VERSION, true );
-		wp_add_inline_script( 'lgt-app', 'window.LGT_APP = ' . wp_json_encode( self::app_config( $trip, 'school' ) ) . ';', 'before' );
-		return '<div id="lgt-app" class="lgt-app"></div>';
-	}
 }

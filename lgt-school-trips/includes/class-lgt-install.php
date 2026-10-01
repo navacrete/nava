@@ -62,23 +62,19 @@ class LGT_Install {
 			destination VARCHAR(200) NOT NULL DEFAULT '',
 			departure_date DATE NULL,
 			return_date DATE NULL,
-			status VARCHAR(20) NOT NULL DEFAULT 'draft',
+			status VARCHAR(20) NOT NULL DEFAULT 'open',
 			token VARCHAR(64) NULL,
 			access_code VARCHAR(60) NOT NULL DEFAULT '',
 			has_hotel TINYINT(1) NOT NULL DEFAULT 1,
 			has_ferry TINYINT(1) NOT NULL DEFAULT 0,
-			has_flight TINYINT(1) NOT NULL DEFAULT 0,
 			hotel_name VARCHAR(200) NOT NULL DEFAULT '',
-			hotel_notes TEXT NULL,
 			ferry_company VARCHAR(200) NOT NULL DEFAULT '',
-			ferry_notes TEXT NULL,
-			airline VARCHAR(200) NOT NULL DEFAULT '',
-			flight_notes TEXT NULL,
-			room_types LONGTEXT NULL,
-			cabin_types LONGTEXT NULL,
 			extra_emails TEXT NULL,
 			notes_school TEXT NULL,
 			notes_internal TEXT NULL,
+			form_data LONGTEXT NULL,
+			rooming_data LONGTEXT NULL,
+			cabins_data LONGTEXT NULL,
 			meta LONGTEXT NULL,
 			created_by BIGINT UNSIGNED NOT NULL DEFAULT 0,
 			submitted_at DATETIME NULL,
@@ -89,60 +85,6 @@ class LGT_Install {
 			UNIQUE KEY token (token),
 			KEY status (status),
 			KEY departure_date (departure_date)
-		) $charset;";
-
-		$sql[] = "CREATE TABLE {$p}lgt_participants (
-			id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-			trip_id BIGINT UNSIGNED NOT NULL,
-			ptype VARCHAR(20) NOT NULL DEFAULT 'student',
-			status VARCHAR(20) NOT NULL DEFAULT 'active',
-			last_name VARCHAR(120) NOT NULL DEFAULT '',
-			first_name VARCHAR(120) NOT NULL DEFAULT '',
-			last_name_lat VARCHAR(120) NOT NULL DEFAULT '',
-			first_name_lat VARCHAR(120) NOT NULL DEFAULT '',
-			lat_manual TINYINT(1) NOT NULL DEFAULT 0,
-			gender CHAR(1) NOT NULL DEFAULT '',
-			birth_date DATE NULL,
-			class_name VARCHAR(40) NOT NULL DEFAULT '',
-			nationality VARCHAR(60) NOT NULL DEFAULT '',
-			doc_type VARCHAR(20) NOT NULL DEFAULT '',
-			doc_number VARCHAR(60) NOT NULL DEFAULT '',
-			doc_expiry DATE NULL,
-			phone VARCHAR(60) NOT NULL DEFAULT '',
-			notes TEXT NULL,
-			sort_order INT NOT NULL DEFAULT 0,
-			created_at DATETIME NOT NULL,
-			updated_at DATETIME NOT NULL,
-			PRIMARY KEY  (id),
-			KEY trip_id (trip_id),
-			KEY trip_status (trip_id, status)
-		) $charset;";
-
-		$sql[] = "CREATE TABLE {$p}lgt_rooms (
-			id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-			trip_id BIGINT UNSIGNED NOT NULL,
-			kind VARCHAR(10) NOT NULL DEFAULT 'hotel',
-			label VARCHAR(100) NOT NULL DEFAULT '',
-			type_code VARCHAR(30) NOT NULL DEFAULT '',
-			capacity TINYINT UNSIGNED NOT NULL DEFAULT 2,
-			notes VARCHAR(255) NOT NULL DEFAULT '',
-			sort_order INT NOT NULL DEFAULT 0,
-			created_at DATETIME NOT NULL,
-			PRIMARY KEY  (id),
-			KEY trip_kind (trip_id, kind)
-		) $charset;";
-
-		$sql[] = "CREATE TABLE {$p}lgt_assignments (
-			id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-			trip_id BIGINT UNSIGNED NOT NULL,
-			kind VARCHAR(10) NOT NULL DEFAULT 'hotel',
-			room_id BIGINT UNSIGNED NOT NULL,
-			participant_id BIGINT UNSIGNED NOT NULL,
-			position TINYINT UNSIGNED NOT NULL DEFAULT 0,
-			PRIMARY KEY  (id),
-			UNIQUE KEY kind_participant (kind, participant_id),
-			KEY room_id (room_id),
-			KEY trip_kind (trip_id, kind)
 		) $charset;";
 
 		$sql[] = "CREATE TABLE {$p}lgt_activity (
@@ -173,6 +115,10 @@ class LGT_Install {
 
 		foreach ( $sql as $q ) {
 			dbDelta( $q );
+		}
+		// Tables from the 1.x structured prototype are no longer used.
+		foreach ( array( 'lgt_participants', 'lgt_rooms', 'lgt_assignments' ) as $old ) {
+			$wpdb->query( "DROP TABLE IF EXISTS {$p}{$old}" ); // phpcs:ignore WordPress.DB
 		}
 	}
 
