@@ -138,7 +138,7 @@ class LGTKS_Admin {
 
 		echo '<p>';
 		self::button_form( 'run', 'Έλεγχος τώρα (συγχρονισμός + SMS σε όσους εκκρεμούν)', 'button button-primary' );
-		if ( in_array( LGTKS_Settings::get( 'source_type' ), array( 'api_json', 'csv_url' ), true ) ) {
+		if ( LGTKS_Source::is_pull( LGTKS_Settings::get( 'source_type' ) ) ) {
 			self::button_form( 'sync', 'Μόνο συγχρονισμός χτυπημάτων', 'button' );
 		}
 		echo '</p>';
@@ -451,6 +451,29 @@ class LGTKS_Admin {
 		echo '<div class="lgtks-source" data-s="webhook"><p>Δώστε αυτό το URL στο eVardia (αν υποστηρίζει webhooks/ειδοποιήσεις HTTP) ή σε Zapier/Make/n8n που διαβάζει το eVardia και κάνει POST εδώ για κάθε χτύπημα:</p>';
 		echo '<p><code class="lgtks-url">' . esc_html( $webhook ) . '</code></p>';
 		echo '<p class="description">Δέχεται JSON <code>{"employee":"ΚΩΔΙΚΟΣ ή ΑΦΜ ή κινητό ή ονοματεπώνυμο","datetime":"2026-10-01 09:02","kind":"in"}</code>, λίστα τέτοιων, ή απλά <code>?employee=…&amp;datetime=…</code>. Το token μπορεί να πάει και σε header <code>X-LGTKS-Token</code>. Αν λείπει η ώρα, θεωρείται «τώρα».</p></div>';
+		echo '<div class="lgtks-source" data-s="web_login">';
+		echo '<p>Το plugin συνδέεται στο evardia.gr όπως εσείς στον browser (όνομα χρήστη + κωδικός), κρατά τη συνεδρία και διαβάζει τη σελίδα ή αναφορά με τα χτυπήματα της ημέρας. Τα κρυφά πεδία της φόρμας login (CSRF, __VIEWSTATE κ.λπ.) αντιγράφονται αυτόματα.</p>';
+		echo '<table class="form-table"><tbody>';
+		self::text( 'wl_login_url', 'URL σελίδας σύνδεσης', 'π.χ. <code>https://evardia.gr/Login</code> (η σελίδα όπου βάζετε κωδικό).', 'url' );
+		self::text( 'wl_username', 'Όνομα χρήστη' );
+		self::text( 'wl_password', 'Κωδικός', 'Αποθηκεύεται στη βάση του WordPress. Προτείνεται ξεχωριστός χρήστης eVardia μόνο για ανάγνωση, αν υπάρχει.', 'password', 'autocomplete="new-password"' );
+		self::text( 'wl_user_field', 'Όνομα πεδίου χρήστη (προαιρετικό)', 'Αφήστε <code>username</code> για αυτόματη ανίχνευση. Αλλιώς το <code>name</code> του input, π.χ. <code>ctl00$Login1$UserName</code>.' );
+		self::text( 'wl_pass_field', 'Όνομα πεδίου κωδικού', 'Το <code>name</code> του input τύπου password, π.χ. <code>password</code>.' );
+		self::area( 'wl_extra_fields', 'Επιπλέον πεδία φόρμας (προαιρετικό)', 'Μία γραμμή ανά πεδίο <code>όνομα=τιμή</code>, π.χ. το κουμπί υποβολής σε ASP.NET: <code>ctl00$Login1$LoginButton=Σύνδεση</code>.', 2 );
+		self::text( 'wl_success_contains', 'Κείμενο που εμφανίζεται μόνο μετά το login (προαιρετικό)', 'π.χ. <code>Αποσύνδεση</code>. Βοηθά να διαπιστωθεί αν η σύνδεση πέτυχε.' );
+		self::text( 'wl_data_url', 'URL σελίδας/αναφοράς με τα χτυπήματα', 'Το URL που ανοίγετε για να δείτε τα σημερινά χτυπήματα. Μεταβλητές: <code>{date}</code> <code>{date_dmy}</code> <code>{day}</code> <code>{month}</code> <code>{year}</code>. Αν η σελίδα φορτώνει τα δεδομένα με JavaScript, βάλτε το URL του εσωτερικού αιτήματος (Chrome → F12 → Network).', 'url' );
+		self::select( 'wl_format', 'Μορφή δεδομένων', array( 'auto' => 'Αυτόματη ανίχνευση', 'html' => 'Πίνακας HTML', 'json' => 'JSON', 'csv' => 'CSV' ) );
+		self::text( 'wl_table_hint', 'Αναγνώριση πίνακα (προαιρετικό)', 'Λέξη που υπάρχει στον σωστό πίνακα (π.χ. επικεφαλίδα «Ώρα») ή το id/class του. Αλλιώς παίρνει τον μεγαλύτερο πίνακα.' );
+		self::text( 'source_records_path', 'Διαδρομή λίστας (μόνο για JSON)', 'π.χ. <code>data</code>. Κενό αν η απάντηση είναι λίστα.' );
+		self::text( 'source_field_employee', 'Στήλη/πεδίο εργαζόμενου', 'Επικεφαλίδα στήλης (π.χ. <code>Εργαζόμενος</code>, <code>ΑΦΜ</code>) ή αριθμός στήλης.' );
+		self::text( 'source_field_datetime', 'Στήλη/πεδίο ημερομηνίας', 'Επικεφαλίδα ή αριθμός. Αν η ημερομηνία και η ώρα είναι σε δύο στήλες, βάλτε εδώ την ημερομηνία και παρακάτω την ώρα.' );
+		self::text( 'wl_field_time', 'Στήλη ώρας (αν είναι ξεχωριστή)' );
+		self::text( 'source_field_kind', 'Στήλη τύπου (προαιρετικό)', 'π.χ. <code>Κίνηση</code> όταν υπάρχουν και αποχωρήσεις.' );
+		self::text( 'source_kind_in_value', 'Τιμή για «είσοδο»', 'π.χ. <code>Έναρξη</code>, <code>Προσέλευση</code>, <code>IN</code>. Κενό = όλα μετρούν ως παρουσία.' );
+		self::text( 'source_date_format', 'Μορφή ημερομηνίας (προαιρετικό)', 'π.χ. <code>d/m/Y H:i</code>.' );
+		echo '</tbody></table>';
+		echo '<p class="description"><strong>Πώς το ρυθμίζουμε:</strong> ανοίξτε στον browser τη σελίδα του eVardia με τα σημερινά χτυπήματα, πατήστε Ctrl+S (Αποθήκευση ως «Ιστοσελίδα, μόνο HTML») και στείλτε το αρχείο, μαζί με το URL της σελίδας login και της αναφοράς. Από αυτά βγαίνουν όλα τα παραπάνω πεδία. Μη στέλνετε κωδικούς.</p>';
+		echo '</div>';
 		echo '<div class="lgtks-source" data-s="api_json"><table class="form-table"><tbody>';
 		self::text( 'source_url', 'URL API', 'Μεταβλητές: <code>{date}</code> (2026-10-01) <code>{date_dmy}</code> (01/10/2026) <code>{from}</code>/<code>{to}</code> (ISO αρχή/τέλος ημέρας) <code>{ts_from}</code>/<code>{ts_to}</code>.', 'url' );
 		self::select( 'source_method', 'Μέθοδος', array( 'GET' => 'GET', 'POST' => 'POST' ) );
@@ -520,14 +543,18 @@ class LGTKS_Admin {
 			} elseif ( isset( $in[ $k ] ) ) {
 				$v = (string) $in[ $k ];
 				// Keep headers/bodies/templates raw (they may contain JSON, quotes, {vars}); only strip tags.
-				$out[ $k ] = in_array( $k, array( 'generic_headers', 'generic_body', 'source_headers', 'source_body', 'message_template', 'manager_message_template', 'holidays', 'manager_mobiles' ), true ) ? wp_strip_all_tags( $v ) : sanitize_text_field( $v );
+				$out[ $k ] = in_array( $k, array( 'generic_headers', 'generic_body', 'source_headers', 'source_body', 'message_template', 'manager_message_template', 'holidays', 'manager_mobiles', 'wl_extra_fields', 'wl_password', 'wl_username' ), true ) ? wp_strip_all_tags( $v ) : sanitize_text_field( $v );
 			}
 		}
 		if ( ! empty( $out['sms_sender'] ) ) {
 			$out['sms_sender'] = substr( $out['sms_sender'], 0, 16 );
 		}
+		if ( isset( $out['wl_password'] ) && '' === $out['wl_password'] ) {
+			unset( $out['wl_password'] ); // empty field = keep the stored password
+		}
 		LGTKS_Settings::update( $out );
 		delete_transient( 'lgtks_routee_token' );
+		delete_transient( LGTKS_WebLogin::COOKIE_TRANSIENT );
 		self::back( 'settings', 'Οι ρυθμίσεις αποθηκεύτηκαν.' );
 	}
 
@@ -543,13 +570,23 @@ class LGTKS_Admin {
 	public static function handle_test_source() {
 		self::guard( 'test_source' );
 		$type = LGTKS_Settings::get( 'source_type' );
-		if ( ! in_array( $type, array( 'api_json', 'csv_url' ), true ) ) {
-			self::back( 'settings', 'Η δοκιμή αφορά μόνο API/CSV. Για webhook, στείλτε ένα δοκιμαστικό POST στο URL.', 'warning' );
+		if ( ! LGTKS_Source::is_pull( $type ) ) {
+			self::back( 'settings', 'Η δοκιμή αφορά μόνο API/CSV/σύνδεση με κωδικούς. Για webhook, στείλτε ένα δοκιμαστικό POST στο URL.', 'warning' );
 		}
-		$day  = current_time( 'Y-m-d' );
-		$recs = ( 'api_json' === $type ) ? LGTKS_Source::fetch_json( $day ) : LGTKS_Source::fetch_csv( $day );
+		$day = current_time( 'Y-m-d' );
+		if ( 'web_login' === $type ) {
+			delete_transient( LGTKS_WebLogin::COOKIE_TRANSIENT ); // force a fresh login on test
+		}
+		$recs = LGTKS_Source::fetch( $type, $day );
 		if ( is_wp_error( $recs ) ) {
-			set_transient( 'lgtks_test_' . get_current_user_id(), array( 'title' => 'Σφάλμα πηγής', 'body' => $recs->get_error_message() ), 120 );
+			$extra = '';
+			if ( 'web_login' === $type ) {
+				$raw = LGTKS_WebLogin::get_data( $day );
+				if ( ! is_wp_error( $raw ) ) {
+					$extra = "\n\n--- Πρώτοι 3000 χαρακτήρες της σελίδας δεδομένων (στείλτε τους για ρύθμιση) ---\n" . mb_substr( $raw, 0, 3000 );
+				}
+			}
+			set_transient( 'lgtks_test_' . get_current_user_id(), array( 'title' => 'Σφάλμα πηγής', 'body' => $recs->get_error_message() . $extra ), 120 );
 			self::back( 'settings', 'Η λήψη απέτυχε.', 'error' );
 		}
 		$idx   = LGTKS_Source::employee_index();

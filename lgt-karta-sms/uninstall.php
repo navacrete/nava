@@ -21,3 +21,4 @@ delete_option( 'lgt_ks_db_version' );
 delete_option( 'lgt_ks_last_sync' );
 delete_option( 'lgt_ks_last_run' );
 delete_transient( 'lgtks_routee_token' );
+delete_transient( 'lgtks_weblogin_cookies' );

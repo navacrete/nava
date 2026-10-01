@@ -23,11 +23,12 @@
 
 ## Πώς «παίρνει» τα χτυπήματα από το eVardia
 
-Το eVardia (Anaconda) δεν δημοσιεύει ανοιχτό API, οπότε το plugin υποστηρίζει **τέσσερις** τρόπους·
-ρωτήστε το support της Anaconda ποιον από τους δύο πρώτους σας δίνουν:
+Το eVardia (Anaconda) δεν δημοσιεύει ανοιχτό API, οπότε το plugin υποστηρίζει **πέντε** τρόπους·
+ο πρώτος δεν χρειάζεται τίποτα από την Anaconda· για τους επόμενους ρωτήστε το support τους:
 
 | Τρόπος | Τι χρειάζεται από το eVardia |
 | --- | --- |
+| **Σύνδεση με κωδικούς (web login)** | Τίποτα από την Anaconda: το plugin κάνει login στο evardia.gr με το όνομα χρήστη/κωδικό σας, κρατά τη συνεδρία και διαβάζει τη σελίδα ή αναφορά με τα χτυπήματα της ημέρας (πίνακας HTML, JSON ή CSV). Χρειάζεται μία φορά το URL login, το URL της αναφοράς και τις επικεφαλίδες των στηλών. Εξαρτάται από τη δομή του site του eVardia· αν αλλάξει, θέλει ξαναρύθμιση. |
 | **API (JSON)** | URL που επιστρέφει τα χτυπήματα της ημέρας + API key. Δηλώνετε τη διαδρομή της λίστας (`data.records`) και τα ονόματα πεδίων (εργαζόμενος, ώρα, είσοδος/έξοδος). |
 | **CSV από URL** | Σύνδεσμος export (CSV) των χτυπημάτων. Δηλώνετε όνομα ή αριθμό στήλης. |
 | **Webhook** | Αν το eVardia μπορεί να «χτυπάει» ένα URL σε κάθε χτύπημα (ή μέσω Zapier/Make/n8n), του δίνετε το URL `…/wp-json/lgt-karta/v1/punch?token=…`. |
@@ -85,6 +86,7 @@ includes/class-lgtks-install.php  πίνακες (employees, punches, notificati
 includes/class-lgtks-settings.php ρυθμίσεις, αργίες, headers
 includes/class-lgtks-db.php       εργαζόμενοι, χτυπήματα, ειδοποιήσεις, log
 includes/class-lgtks-source.php   λήψη χτυπημάτων: JSON API / CSV / webhook, αντιστοίχιση
+includes/class-lgtks-weblogin.php login με κωδικούς σε web εφαρμογή (evardia.gr) + ανάγνωση πίνακα/JSON/CSV
 includes/class-lgtks-sms.php      Yuboto / Routee / Twilio / γενικό HTTP
 includes/class-lgtks-checker.php  ο έλεγχος: ποιος εκκρεμεί, αποστολή SMS, 2η υπενθύμιση
 includes/class-lgtks-rest.php     REST: /punch (webhook), /run (εξωτερικό cron)
