@@ -262,6 +262,46 @@ class LGTKS_Checker {
 		return $to_emp ? $ok_any : $mgr_sent;
 	}
 
+	/**
+	 * Receipt to the employee themself: "your clock-in/out was recorded at HH:MM".
+	 * Only for employees whose channel includes email and who are notified at all.
+	 */
+	public static function email_receipts( array $punches ) {
+		if ( self::$dry || ! LGTKS_Settings::get( 'receipt_email', 1 ) ) {
+			return 0;
+		}
+		$kinds   = (string) LGTKS_Settings::get( 'receipt_email_kinds', 'all' );
+		$day     = LGTKS_Settings::now( 'Y-m-d' );
+		$company = (string) LGTKS_Settings::get( 'company_name' );
+		$sent    = 0;
+		foreach ( $punches as $p ) {
+			if ( 'in' === $kinds && 'in' !== $p['kind'] ) {
+				continue;
+			}
+			$e = LGTKS_DB::employee( $p['employee_id'] );
+			if ( ! $e || ! in_array( $e['notify_target'], array( 'both', 'employee' ), true ) ) {
+				continue;
+			}
+			if ( ! in_array( $e['notify_channel'], array( 'email', 'both' ), true ) ) {
+				continue;
+			}
+			$to = trim( (string) $e['email'] );
+			if ( ! is_email( $to ) ) {
+				continue;
+			}
+			$ptime = substr( $p['punched_at'], 11, 5 );
+			$first = preg_split( '/\\s+/', trim( $e['name'] ) )[0];
+			$vars  = array( '{name}' => $e['name'], '{first_name}' => $first, '{punch_time}' => $ptime, '{date}' => LGTKS_Settings::fmt( 'd/m/Y', strtotime( $day ) ), '{company}' => $company );
+			$is_in = 'in' === $p['kind'];
+			$subj  = strtr( (string) LGTKS_Settings::get( $is_in ? 'receipt_subject_in' : 'receipt_subject_out' ), $vars );
+			$body  = 'Γεια σου ' . $first . ",\n\n" . ( $is_in ? 'η προσέλευσή σου' : 'η αποχώρησή σου' ) . ' καταγράφηκε κανονικά στην ψηφιακή κάρτα εργασίας.' . "\n\nΗμερομηνία: " . $vars['{date}'] . "\nΏρα: " . $ptime . "\n\nΑν δεν χτύπησες εσύ κάρτα αυτή την ώρα, ενημέρωσε τον υπεύθυνό σου.\n\n" . $company;
+			$ok    = wp_mail( $to, $subj, $body );
+			LGTKS_DB::add_notification( $e['id'], $day, 1, 'receipt_email', $to, $subj, $ok ? 'sent' : 'failed', $ok ? 'wp_mail OK' : 'wp_mail απέτυχε' );
+			$sent += $ok ? 1 : 0;
+		}
+		return $sent;
+	}
+
 	/** Batch mode: send the queued punches as one email once the oldest is older than N minutes. */
 	public static function flush_punch_queue( $force = false ) {
 		if ( self::$dry ) {
@@ -355,7 +395,11 @@ class LGTKS_Checker {
 	 * One email per punch; above 5 punches in one batch a single combined email is sent instead.
 	 */
 	public static function email_new_punches( array $punches ) {
-		if ( self::$dry || ! LGTKS_Settings::get( 'clockin_email' ) || ! $punches ) {
+		if ( self::$dry || ! $punches ) {
+			return 0;
+		}
+		self::email_receipts( $punches );
+		if ( ! LGTKS_Settings::get( 'clockin_email' ) ) {
 			return 0;
 		}
 		$kinds = (string) LGTKS_Settings::get( 'clockin_email_kinds', 'in' );

@@ -117,7 +117,7 @@ class LGTKS_Admin {
 	}
 
 	private static function notif_channel_label( $c ) {
-		$map = array( 'sms' => 'SMS', 'email' => 'Email', 'manager' => 'Υπεύθυνος (SMS)', 'manager_email' => 'Υπεύθυνος (Email)', 'manager_summary' => 'Υπεύθυνοι – συνολική κατάσταση (email)', 'manager_digest' => 'Υπεύθυνοι – συγκεντρωτικό SMS', 'punch_email' => 'Email χτυπήματος', 'anomaly_email' => 'Διπλή προσέλευση (email)', 'tech' => 'Τεχνικός – υγεία συστήματος' );
+		$map = array( 'sms' => 'SMS', 'email' => 'Email', 'manager' => 'Υπεύθυνος (SMS)', 'manager_email' => 'Υπεύθυνος (Email)', 'manager_summary' => 'Υπεύθυνοι – συνολική κατάσταση (email)', 'manager_digest' => 'Υπεύθυνοι – συγκεντρωτικό SMS', 'punch_email' => 'Email χτυπήματος', 'anomaly_email' => 'Διπλή προσέλευση (email)', 'receipt_email' => 'Επιβεβαίωση στον εργαζόμενο (email)', 'tech' => 'Τεχνικός – υγεία συστήματος' );
 		return isset( $map[ $c ] ) ? $map[ $c ] : $c;
 	}
 
@@ -508,6 +508,10 @@ class LGTKS_Admin {
 		self::text( 'max_delay_minutes', 'Μέγιστη καθυστέρηση (λεπτά)', 'Μετά από τόσα λεπτά από την έναρξη δεν στέλνεται πλέον SMS (π.χ. ο εργαζόμενος απουσιάζει).', 'number', 'min="0" max="1440" style="width:90px"' );
 		self::text( 'email_subject', 'Θέμα email στον εργαζόμενο', 'Για όσους έχουν ειδοποίηση Email ή SMS + Email. Το σώμα του email είναι το ίδιο μήνυμα με το SMS.' );
 		self::area( 'message_template', 'Μήνυμα στον εργαζόμενο (SMS και email)', '<strong>Στέλνεται μία φορά την ημέρα ανά εργαζόμενο.</strong> Μεταβλητές: {first_name} {name} {time} {date} {now} {minutes} {company}. Ελληνικοί χαρακτήρες = Unicode SMS (70 χαρακτήρες/τμήμα).', 3 );
+		self::check( 'receipt_email', 'Email επιβεβαίωσης στον εργαζόμενο', 'Όσοι έχουν κανάλι Email ή SMS + Email (και «ειδοποιείται ο ίδιος») λαμβάνουν email «καταγράφηκε η προσέλευσή/αποχώρησή σου HH:MM» σε κάθε χτύπημα. Χωρίς κόστος SMS.' );
+		self::select( 'receipt_email_kinds', 'Επιβεβαίωση για', array( 'all' => 'Προσέλευση και αποχώρηση', 'in' => 'Μόνο προσέλευση' ) );
+		self::text( 'receipt_subject_in', 'Θέμα email προσέλευσης', 'Μεταβλητές: {first_name} {name} {punch_time} {date} {company}.' );
+		self::text( 'receipt_subject_out', 'Θέμα email αποχώρησης', 'Ίδιες μεταβλητές.' );
 		echo '</tbody></table></div>';
 		echo '<div class="lgtks-section"><h2>Υπεύθυνοι</h2><table class="form-table"><tbody>';
 		self::select( 'manager_channel', 'Μέσο ειδοποίησης υπευθύνων', array( 'both' => 'SMS + Email', 'sms' => 'Μόνο SMS', 'email' => 'Μόνο Email', 'none' => 'Καμία αυτόματη (μόνο με το κουμπί)' ), 'Ισχύει για τη συγκεντρωτική ειδοποίηση και την κλιμάκωση.' );
@@ -692,7 +696,7 @@ class LGTKS_Admin {
 			if ( in_array( $k, array( 'webhook_token', 'cron_token' ), true ) ) {
 				continue;
 			}
-			if ( is_int( $d ) && in_array( $k, array( 'enabled', 'delete_on_uninstall', 'ev_use_schedule', 'ev_auto_create', 'manager_per_employee', 'manager_digest_all_ok', 'clockin_email', 'anomaly_email', 'holidays_auto', 'holiday_clean_monday', 'holiday_holy_spirit', 'holiday_good_friday' ), true ) ) {
+			if ( is_int( $d ) && in_array( $k, array( 'enabled', 'delete_on_uninstall', 'ev_use_schedule', 'ev_auto_create', 'manager_per_employee', 'manager_digest_all_ok', 'clockin_email', 'anomaly_email', 'receipt_email', 'holidays_auto', 'holiday_clean_monday', 'holiday_holy_spirit', 'holiday_good_friday' ), true ) ) {
 				$out[ $k ] = empty( $in[ $k ] ) ? 0 : 1;
 			} elseif ( is_int( $d ) ) {
 				$out[ $k ] = isset( $in[ $k ] ) ? max( 0, (int) $in[ $k ] ) : $d;
