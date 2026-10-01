@@ -117,7 +117,7 @@ class LGTKS_Admin {
 	}
 
 	private static function notif_channel_label( $c ) {
-		$map = array( 'sms' => 'SMS', 'email' => 'Email', 'manager' => 'Υπεύθυνος (SMS)', 'manager_email' => 'Υπεύθυνος (Email)', 'manager_summary' => 'Υπεύθυνοι – συνολική κατάσταση' );
+		$map = array( 'sms' => 'SMS', 'email' => 'Email', 'manager' => 'Υπεύθυνος (SMS)', 'manager_email' => 'Υπεύθυνος (Email)', 'manager_summary' => 'Υπεύθυνοι – συνολική κατάσταση (email)', 'manager_digest' => 'Υπεύθυνοι – συγκεντρωτικό SMS' );
 		return isset( $map[ $c ] ) ? $map[ $c ] : $c;
 	}
 
@@ -162,6 +162,13 @@ class LGTKS_Admin {
 		echo '<div class="lgtks-card"><h3>Τελευταίος έλεγχος</h3><div>' . ( $last_run ? esc_html( $last_run['at'] ) : '—' ) . '</div>';
 		echo '<div style="color:#646970">Επόμενος (WP-Cron): ' . ( $next ? esc_html( LGTKS_Settings::fmt( 'H:i', $next ) ) : '—' ) . '</div></div>';
 		echo '<div class="lgtks-card"><h3>Τελευταίος συγχρονισμός πηγής</h3><div>' . ( $last_sync ? esc_html( $last_sync['at'] . ' – ' . $last_sync['msg'] ) : '—' ) . '</div>';
+		$dstate = get_option( 'lgt_ks_digest_sent', array() );
+		$dl     = array();
+		foreach ( LGTKS_Settings::digest_times() as $t ) {
+			$st   = ( is_array( $dstate ) && ( $dstate['day'] ?? '' ) === LGTKS_Settings::now( 'Y-m-d' ) && isset( $dstate['times'][ $t ] ) ) ? $dstate['times'][ $t ] : '';
+			$dl[] = $t . ' ' . ( $st ? ( 'skipped-late' === $st ? '(παραλείφθηκε)' : '✔' ) : '(εκκρεμεί)' );
+		}
+		echo '<div style="color:#646970">Συγκεντρωτική υπευθύνων: ' . ( $dl ? esc_html( implode( ' · ', $dl ) ) : '—' ) . '</div>';
 		if ( 'evardia' === LGTKS_Settings::get( 'source_type' ) ) {
 			echo '<div style="color:#646970">Πηγή: eVardia' . ( LGTKS_Settings::get( 'ev_use_schedule' ) ? ' (ωράρια + χτυπήματα)' : ' (μόνο χτυπήματα)' ) . '</div>';
 		}
@@ -491,13 +498,20 @@ class LGTKS_Admin {
 		self::text( 'company_name', 'Επωνυμία', 'Για το {company} στο μήνυμα.' );
 		self::text( 'grace_minutes', 'Ανοχή (λεπτά)', 'Πόσα λεπτά μετά την έναρξη βάρδιας περιμένουμε πριν στείλουμε SMS.', 'number', 'min="0" max="600" style="width:90px"' );
 		self::text( 'max_delay_minutes', 'Μέγιστη καθυστέρηση (λεπτά)', 'Μετά από τόσα λεπτά από την έναρξη δεν στέλνεται πλέον SMS (π.χ. ο εργαζόμενος απουσιάζει).', 'number', 'min="0" max="1440" style="width:90px"' );
-		self::text( 'second_reminder_minutes', 'Δεύτερη υπενθύμιση μετά από (λεπτά)', '0 = χωρίς δεύτερο SMS.', 'number', 'min="0" max="600" style="width:90px"' );
 		self::text( 'email_subject', 'Θέμα email στον εργαζόμενο', 'Για όσους έχουν ειδοποίηση Email ή SMS + Email. Το σώμα του email είναι το ίδιο μήνυμα με το SMS.' );
-		self::area( 'message_template', 'Μήνυμα στον εργαζόμενο (SMS και email)', 'Μεταβλητές: {first_name} {name} {time} {date} {now} {minutes} {company}. Ελληνικοί χαρακτήρες = Unicode SMS (70 χαρακτήρες/τμήμα).', 3 );
-		self::select( 'manager_channel', 'Ειδοποίηση υπευθύνων', array( 'both' => 'SMS + Email', 'sms' => 'Μόνο SMS', 'email' => 'Μόνο Email', 'none' => 'Καμία αυτόματη (μόνο με το κουμπί)' ), 'Πώς ενημερώνονται οι υπεύθυνοι αυτόματα για κάθε εργαζόμενο που δεν χτύπησε. Ανεξάρτητα από αυτό, στη σελίδα «Σήμερα» υπάρχει κουμπί που στέλνει email με τη συνολική κατάσταση όποτε θέλετε.' );
+		self::area( 'message_template', 'Μήνυμα στον εργαζόμενο (SMS και email)', '<strong>Στέλνεται μία φορά την ημέρα ανά εργαζόμενο.</strong> Μεταβλητές: {first_name} {name} {time} {date} {now} {minutes} {company}. Ελληνικοί χαρακτήρες = Unicode SMS (70 χαρακτήρες/τμήμα).', 3 );
+		echo '</tbody></table></div>';
+		echo '<div class="lgtks-section"><h2>Υπεύθυνοι</h2><table class="form-table"><tbody>';
+		self::select( 'manager_channel', 'Μέσο ειδοποίησης υπευθύνων', array( 'both' => 'SMS + Email', 'sms' => 'Μόνο SMS', 'email' => 'Μόνο Email', 'none' => 'Καμία αυτόματη (μόνο με το κουμπί)' ), 'Ισχύει για τη συγκεντρωτική ειδοποίηση και την κλιμάκωση.' );
+		self::text( 'manager_digest_times', 'Ώρες συγκεντρωτικής ειδοποίησης', 'Π.χ. <code>11:00</code> ή <code>11:00, 17:30</code>. Σε κάθε ώρα στέλνεται <strong>ένα</strong> SMS με τα ονόματα όσων δεν έχουν χτυπήσει ακόμη και ένα αναλυτικό email, <strong>μόνο αν εκκρεμεί κάποιος</strong>. Μία φορά ανά ώρα ανά ημέρα.' );
+		self::check( 'manager_digest_all_ok', 'Email και όταν όλα είναι εντάξει', 'Στις παραπάνω ώρες να στέλνεται email «όλοι χτύπησαν» ακόμη κι αν δεν εκκρεμεί κανείς (SMS δεν στέλνεται).' );
+		self::area( 'manager_digest_sms', 'Κείμενο συγκεντρωτικού SMS', 'Μεταβλητές: {now} {date} {count} {list} {company}. Το {list} γίνεται π.χ. «ΠΑΠΑΔΟΠΟΥΛΟΥ Μ. (09:00, +45\')».', 2 );
+		self::text( 'manager_escalation_minutes', 'Άμεση κλιμάκωση μετά από (λεπτά)', 'Αν ένας εργαζόμενος ξεπεράσει τόσα λεπτά καθυστέρησης χωρίς χτύπημα, ο υπεύθυνος ειδοποιείται <strong>αμέσως</strong>, χωρίς να περιμένει τη συγκεντρωτική (μία φορά ανά εργαζόμενο ανά ημέρα). 0 = απενεργοποίηση.', 'number', 'min="0" max="600" style="width:90px"' );
+		self::area( 'manager_escalation_template', 'Μήνυμα κλιμάκωσης', 'Μεταβλητές: {name} {first_name} {time} {minutes} {date} {now}.', 2 );
+		self::check( 'manager_per_employee', 'Ξεχωριστή ειδοποίηση ανά εργαζόμενο', 'Να ειδοποιείται ο υπεύθυνος και τη στιγμή που ειδοποιείται κάθε εργαζόμενος (ένα μήνυμα ανά εργαζόμενο). <strong>Κλειστό από προεπιλογή</strong>: αρκούν η συγκεντρωτική και η κλιμάκωση.' );
 		self::area( 'manager_mobiles', 'Κινητά υπευθύνων', 'Ένα ανά γραμμή ή με κόμμα (για SMS).', 2 );
 		self::area( 'manager_email', 'Email υπευθύνων', 'Ένα ανά γραμμή ή με κόμμα. Χρησιμοποιούνται για τις αυτόματες ειδοποιήσεις (αν το κανάλι περιλαμβάνει email) και για το κουμπί «Email στους υπευθύνους».', 2 );
-		self::area( 'manager_message_template', 'Μήνυμα στον υπεύθυνο (ανά εργαζόμενο)', 'Ίδιες μεταβλητές.', 2 );
+		self::area( 'manager_message_template', 'Μήνυμα στον υπεύθυνο (ανά εργαζόμενο)', 'Χρησιμοποιείται μόνο αν είναι ενεργή η «Ξεχωριστή ειδοποίηση ανά εργαζόμενο» ή με το κουμπί «Ειδοποίηση τώρα».', 2 );
 		self::text( 'manager_summary_subject', 'Θέμα email συνολικής κατάστασης', 'Μεταβλητές: {date} {now} {due} {company}.' );
 		self::area( 'holidays', 'Αργίες (όλη η εταιρεία)', 'Ημερομηνίες ΕΕΕΕ-ΜΜ-ΗΗ, π.χ. <code>2026-10-28, 2026-12-25, 2026-12-26, 2027-01-01</code>. Διάστημα: <code>2026-08-10..2026-08-16</code>.', 2 );
 		self::text( 'timezone', 'Ζώνη ώρας', 'Το plugin δουλεύει πάντα σε αυτή τη ζώνη (προεπιλογή <code>Europe/Athens</code>, με αυτόματη θερινή/χειμερινή ώρα), ανεξάρτητα από τη ρύθμιση του WordPress. Τρέχουσα ώρα plugin: <strong>' . esc_html( LGTKS_Settings::now( 'd/m/Y H:i' ) ) . '</strong>.' );
@@ -642,14 +656,14 @@ class LGTKS_Admin {
 			if ( in_array( $k, array( 'webhook_token', 'cron_token' ), true ) ) {
 				continue;
 			}
-			if ( is_int( $d ) && in_array( $k, array( 'enabled', 'delete_on_uninstall', 'ev_use_schedule', 'ev_auto_create' ), true ) ) {
+			if ( is_int( $d ) && in_array( $k, array( 'enabled', 'delete_on_uninstall', 'ev_use_schedule', 'ev_auto_create', 'manager_per_employee', 'manager_digest_all_ok' ), true ) ) {
 				$out[ $k ] = empty( $in[ $k ] ) ? 0 : 1;
 			} elseif ( is_int( $d ) ) {
 				$out[ $k ] = isset( $in[ $k ] ) ? max( 0, (int) $in[ $k ] ) : $d;
 			} elseif ( isset( $in[ $k ] ) ) {
 				$v = (string) $in[ $k ];
 				// Keep headers/bodies/templates raw (they may contain JSON, quotes, {vars}); only strip tags.
-				$out[ $k ] = in_array( $k, array( 'generic_headers', 'generic_body', 'source_headers', 'source_body', 'message_template', 'manager_message_template', 'holidays', 'manager_mobiles', 'wl_extra_fields', 'wl_password', 'wl_username', 'ev_password', 'ev_username', 'manager_email' ), true ) ? wp_strip_all_tags( $v ) : sanitize_text_field( $v );
+				$out[ $k ] = in_array( $k, array( 'generic_headers', 'generic_body', 'source_headers', 'source_body', 'message_template', 'manager_message_template', 'holidays', 'manager_mobiles', 'wl_extra_fields', 'wl_password', 'wl_username', 'ev_password', 'ev_username', 'manager_email', 'manager_digest_sms', 'manager_escalation_template' ), true ) ? wp_strip_all_tags( $v ) : sanitize_text_field( $v );
 			}
 		}
 		if ( ! empty( $out['sms_sender'] ) ) {
@@ -777,7 +791,7 @@ class LGTKS_Admin {
 		echo '<div class="wrap lgtks-wrap"><h1>Ιστορικό</h1>';
 		echo '<h2>Ειδοποιήσεις</h2><table class="widefat striped"><thead><tr><th>Πότε</th><th>Εργαζόμενος</th><th>Κανάλι</th><th>Παραλήπτης</th><th>Κατάσταση</th><th>Μήνυμα</th><th>Απάντηση παρόχου</th></tr></thead><tbody>';
 		foreach ( LGTKS_DB::recent_notifications( 200 ) as $n ) {
-			echo '<tr><td>' . esc_html( $n['created_at'] ) . '</td><td>' . esc_html( $n['name'] ?: ( $n['employee_id'] ? '#' . $n['employee_id'] : '—' ) ) . '</td><td>' . esc_html( self::notif_channel_label( $n['channel'] ) ) . ( (int) $n['round'] > 1 ? ' (2η)' : '' ) . '</td><td>' . esc_html( $n['recipient'] ) . '</td><td>' . ( 'sent' === $n['status'] ? '<span class="lgtks-status present">Εστάλη</span>' : '<span class="lgtks-status due">Απέτυχε</span>' ) . '</td><td>' . esc_html( $n['message'] ) . '</td><td><small>' . esc_html( mb_substr( (string) $n['response'], 0, 200 ) ) . '</small></td></tr>';
+			echo '<tr><td>' . esc_html( $n['created_at'] ) . '</td><td>' . esc_html( $n['name'] ?: ( $n['employee_id'] ? '#' . $n['employee_id'] : '—' ) ) . '</td><td>' . esc_html( self::notif_channel_label( $n['channel'] ) ) . ( 3 === (int) $n['round'] ? ' – ΚΛΙΜΑΚΩΣΗ' : '' ) . '</td><td>' . esc_html( $n['recipient'] ) . '</td><td>' . ( 'sent' === $n['status'] ? '<span class="lgtks-status present">Εστάλη</span>' : '<span class="lgtks-status due">Απέτυχε</span>' ) . '</td><td>' . esc_html( $n['message'] ) . '</td><td><small>' . esc_html( mb_substr( (string) $n['response'], 0, 200 ) ) . '</small></td></tr>';
 		}
 		echo '</tbody></table>';
 		echo '<h2>Καταγραφή συστήματος</h2><table class="widefat striped"><thead><tr><th>Πότε</th><th>Επίπεδο</th><th>Μήνυμα</th><th>Λεπτομέρειες</th></tr></thead><tbody>';

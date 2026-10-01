@@ -18,12 +18,17 @@ class LGTKS_Settings {
 			'company_name'             => 'Le Grand Travel',
 			'grace_minutes'            => 15,
 			'max_delay_minutes'        => 180,
-			'second_reminder_minutes'  => 0,
 			'message_template'         => 'Γεια σου {first_name}, η βάρδια σου ξεκίνησε {time} και δεν έχει καταγραφεί χτύπημα κάρτας. Παρακαλούμε χτύπα κάρτα τώρα. {company}',
 			'manager_mobiles'          => '',
 			'manager_message_template' => '{name} δεν έχει χτυπήσει κάρτα ({date}, βάρδια {time}, καθυστέρηση {minutes} λεπτά).',
 			'manager_email'            => '',
 			'manager_channel'          => 'both',
+			'manager_per_employee'     => 0,
+			'manager_digest_times'     => '11:00',
+			'manager_digest_all_ok'    => 0,
+			'manager_digest_sms'       => 'Κάρτα εργασίας {now}: {count} χωρίς χτύπημα: {list}',
+			'manager_escalation_minutes' => 60,
+			'manager_escalation_template' => 'ΠΡΟΣΟΧΗ: {name} δεν έχει χτυπήσει κάρτα {minutes} λεπτά μετά την έναρξη ({time}). Ειδοποιήθηκε με SMS χωρίς αποτέλεσμα.',
 			'manager_summary_subject'  => 'Κάρτα εργασίας {date}: {due} χωρίς χτύπημα',
 			'email_subject'            => 'Υπενθύμιση: δεν έχει καταγραφεί χτύπημα κάρτας',
 			'holidays'                 => '',
@@ -204,6 +209,18 @@ class LGTKS_Settings {
 	public static function manager_channel() {
 		$c = (string) self::get( 'manager_channel', 'both' );
 		return in_array( $c, array( 'both', 'sms', 'email', 'none' ), true ) ? $c : 'both';
+	}
+
+	/** Digest times as 'HH:MM' list. */
+	public static function digest_times() {
+		$out = array();
+		foreach ( preg_split( '/[\s,;]+/', (string) self::get( 'manager_digest_times' ) ) as $t ) {
+			if ( preg_match( '/^(\d{1,2})[:.](\d{2})$/', trim( $t ), $m ) && (int) $m[1] < 24 && (int) $m[2] < 60 ) {
+				$out[] = sprintf( '%02d:%02d', $m[1], $m[2] );
+			}
+		}
+		sort( $out );
+		return array_values( array_unique( $out ) );
 	}
 
 	public static function manager_mobiles() {

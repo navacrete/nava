@@ -122,8 +122,8 @@ class LGTKS_Checker {
 				$summary['sync'] = is_wp_error( $res ) ? $res->get_error_message() : $res;
 				$rows            = self::status_for_day( $day );
 			}
-			$second = (int) LGTKS_Settings::get( 'second_reminder_minutes', 0 );
 			$now_ts = LGTKS_Settings::now_ts();
+			$escal  = (int) LGTKS_Settings::get( 'manager_escalation_minutes', 60 );
 			foreach ( $rows as $r ) {
 				if ( 'due' !== $r['status'] ) {
 					continue;
@@ -139,26 +139,34 @@ class LGTKS_Checker {
 				$summary['due']++;
 				$sent_rounds = array();
 				foreach ( $r['sms'] as $n ) {
-					if ( 'sent' === $n['status'] && ! isset( $sent_rounds[ (int) $n['round'] ] ) ) {
-						$sent_rounds[ (int) $n['round'] ] = ( new DateTime( $n['created_at'], LGTKS_Settings::tz() ) )->getTimestamp();
+					$is_emp = in_array( $n['channel'], array( 'sms', 'email' ), true );
+					$rnd    = (int) $n['round'];
+					if ( 3 === $rnd && ! $is_emp ) {
+						$sent_rounds[3] = true; // escalation already sent today (sent or failed: do not retry every 5')
+					} elseif ( $is_emp && ( 'sent' === $n['status'] || 'failed' === $n['status'] ) && ! isset( $sent_rounds[ $rnd ] ) ) {
+						// one attempt per day; a failed SMS is not retried automatically (visible on the dashboard)
+						$sent_rounds[ $rnd ] = true;
 					}
 				}
-				$round = 0;
-				if ( empty( $sent_rounds ) ) {
-					$round = 1;
-				} elseif ( $second > 0 && isset( $sent_rounds[1] ) && ! isset( $sent_rounds[2] ) && $now_ts >= $sent_rounds[1] + $second * 60 ) {
-					$round = 2;
+				// Escalation to the manager: still not clocked in after N minutes, once per day.
+				if ( $escal > 0 && in_array( $target, array( 'both', 'manager' ), true ) && (int) $r['late_min'] >= $escal && ! isset( $sent_rounds[3] ) ) {
+					self::escalate( $r );
+					$summary['escalated'] = ( $summary['escalated'] ?? 0 ) + 1;
 				}
-				if ( ! $round ) {
-					continue;
+				if ( 'manager' === $target ) {
+					continue; // the employee is not notified; managers get the digest/escalation
 				}
-				$ok = self::notify( $r, $round );
+				if ( ! empty( $sent_rounds ) ) {
+					continue; // exactly one notification per employee per day
+				}
+				$ok = self::notify( $r, 1 );
 				if ( $ok ) {
 					$summary['sent']++;
 				} else {
 					$summary['failed']++;
 				}
 			}
+			$summary['digest'] = self::run_digest( $rows );
 		} finally {
 			delete_transient( 'lgtks_running' );
 		}
@@ -207,7 +215,7 @@ class LGTKS_Checker {
 			}
 		}
 		$mgr_sent = false;
-		if ( $to_mgr && ( 1 === (int) $round || $force || ! $to_emp ) ) {
+		if ( $to_mgr && ( $force || LGTKS_Settings::get( 'manager_per_employee' ) ) && ( 1 === (int) $round || $force || ! $to_emp ) ) {
 			$mmsg = strtr( (string) LGTKS_Settings::get( 'manager_message_template' ), $vars );
 			$mch  = LGTKS_Settings::manager_channel();
 			if ( ! $to_emp && 'none' === $mch ) {
@@ -232,17 +240,119 @@ class LGTKS_Checker {
 		return $to_emp ? $ok_any : $mgr_sent;
 	}
 
+	/** Immediate manager alert for a long delay (round 3, once per day per employee). */
+	public static function escalate( array $row ) {
+		$e    = $row['employee'];
+		$day  = LGTKS_Settings::now( 'Y-m-d' );
+		$vars = self::vars( $row );
+		$msg  = strtr( (string) LGTKS_Settings::get( 'manager_escalation_template' ), $vars );
+		$mch  = LGTKS_Settings::manager_channel();
+		if ( 'none' === $mch ) {
+			$mch = 'email';
+		}
+		$any = false;
+		if ( in_array( $mch, array( 'both', 'sms' ), true ) ) {
+			foreach ( LGTKS_Settings::manager_mobiles() as $m ) {
+				$r = LGTKS_SMS::send( $m, $msg );
+				LGTKS_DB::add_notification( $e['id'], $day, 3, 'manager', $m, $msg, $r['ok'] ? 'sent' : 'failed', $r['response'] );
+				$any = true;
+			}
+		}
+		if ( in_array( $mch, array( 'both', 'email' ), true ) ) {
+			foreach ( LGTKS_Settings::manager_emails() as $to ) {
+				$ok = wp_mail( $to, '[Κάρτα εργασίας] ΚΛΙΜΑΚΩΣΗ: ' . $e['name'], $msg );
+				LGTKS_DB::add_notification( $e['id'], $day, 3, 'manager_email', $to, $msg, $ok ? 'sent' : 'failed', $ok ? 'wp_mail OK' : 'wp_mail απέτυχε' );
+				$any = true;
+			}
+		}
+		if ( ! $any ) {
+			// No manager contact configured: record so we do not retry every 5 minutes.
+			LGTKS_DB::add_notification( $e['id'], $day, 3, 'manager', '', $msg, 'failed', 'Δεν έχουν οριστεί κινητά/email υπευθύνων' );
+		}
+	}
+
+	/**
+	 * Digest to managers at the configured times (e.g. 11:00): one SMS + one email listing who has not
+	 * clocked in yet. Sent once per time per day, only if someone is pending (unless 'all ok' is on).
+	 */
+	public static function run_digest( array $rows ) {
+		$times = LGTKS_Settings::digest_times();
+		if ( ! $times || 'none' === LGTKS_Settings::manager_channel() ) {
+			return null;
+		}
+		$day   = LGTKS_Settings::now( 'Y-m-d' );
+		$now   = LGTKS_Settings::now( 'H:i' );
+		$state = get_option( 'lgt_ks_digest_sent', array() );
+		if ( ! is_array( $state ) || ( $state['day'] ?? '' ) !== $day ) {
+			$state = array( 'day' => $day, 'times' => array() );
+		}
+		$result = null;
+		foreach ( $times as $t ) {
+			if ( $now < $t || isset( $state['times'][ $t ] ) ) {
+				continue;
+			}
+			// Do not send a stale digest hours later (e.g. cron was down); 2-hour window.
+			$limit = date( 'H:i', strtotime( $day . ' ' . $t ) + 2 * HOUR_IN_SECONDS );
+			if ( $now > $limit && $limit > $t ) {
+				$state['times'][ $t ] = 'skipped-late';
+				continue;
+			}
+			$pending = array();
+			foreach ( $rows as $r ) {
+				if ( ! in_array( $r['status'], array( 'due', 'late_window_passed' ), true ) ) {
+					continue;
+				}
+				if ( ! in_array( $r['employee']['notify_target'], array( 'both', 'manager' ), true ) ) {
+					continue;
+				}
+				$pending[] = $r;
+			}
+			$state['times'][ $t ] = LGTKS_Settings::now( 'H:i:s' );
+			if ( ! $pending && ! LGTKS_Settings::get( 'manager_digest_all_ok' ) ) {
+				$result = array( 'time' => $t, 'pending' => 0, 'sent' => 'nothing-pending' );
+				continue;
+			}
+			$mch  = LGTKS_Settings::manager_channel();
+			$list = array();
+			foreach ( $pending as $r ) {
+				$parts   = preg_split( '/\s+/', trim( $r['employee']['name'] ) );
+				$short   = count( $parts ) > 1 ? $parts[0] . ' ' . mb_substr( $parts[1], 0, 1 ) . '.' : $r['employee']['name'];
+				$list[]  = $short . ' (' . $r['start'] . ', +' . max( 0, (int) $r['late_min'] ) . "')";
+			}
+			$sms_sent = 0;
+			if ( $pending && in_array( $mch, array( 'both', 'sms' ), true ) ) {
+				$text = strtr( (string) LGTKS_Settings::get( 'manager_digest_sms' ), array( '{now}' => $now, '{date}' => LGTKS_Settings::now( 'd/m' ), '{count}' => count( $pending ), '{list}' => implode( ', ', $list ), '{company}' => (string) LGTKS_Settings::get( 'company_name' ) ) );
+				if ( mb_strlen( $text ) > 400 ) {
+					$text = mb_substr( $text, 0, 397 ) . '…';
+				}
+				foreach ( LGTKS_Settings::manager_mobiles() as $m ) {
+					$r = LGTKS_SMS::send( $m, $text );
+					LGTKS_DB::add_notification( 0, $day, 1, 'manager_digest', $m, $text, $r['ok'] ? 'sent' : 'failed', $r['response'] );
+					$sms_sent += $r['ok'] ? 1 : 0;
+				}
+			}
+			$mail = array( 'sent' => 0 );
+			if ( in_array( $mch, array( 'both', 'email' ), true ) ) {
+				$mail = self::email_managers_summary( 'Συγκεντρωτική ' . $t, $rows );
+			}
+			$result = array( 'time' => $t, 'pending' => count( $pending ), 'sms' => $sms_sent, 'email' => $mail['sent'] );
+			LGTKS_DB::log( 'info', 'Συγκεντρωτική ειδοποίηση υπευθύνων ' . $t, $result );
+		}
+		update_option( 'lgt_ks_digest_sent', $state, false );
+		return $result;
+	}
+
 	/**
 	 * Send the managers a summary email of today's status (manual button or on demand).
 	 *
 	 * @return array {sent:int, failed:int, due:int, error:string}
 	 */
-	public static function email_managers_summary() {
+	public static function email_managers_summary( $tag = '', array $rows = null ) {
 		$emails = LGTKS_Settings::manager_emails();
 		if ( ! $emails ) {
 			return array( 'sent' => 0, 'failed' => 0, 'due' => 0, 'error' => 'Δεν έχουν οριστεί email υπευθύνων (Ρυθμίσεις → Email υπευθύνων).' );
 		}
-		$rows   = self::status_for_day();
+		$rows   = null === $rows ? static::status_for_day() : $rows;
 		$groups = array( 'due' => array(), 'not_yet' => array(), 'present' => array(), 'late_window_passed' => array(), 'off' => array() );
 		foreach ( $rows as $r ) {
 			$e = $r['employee'];
@@ -276,7 +386,7 @@ class LGTKS_Checker {
 		$res = array( 'sent' => 0, 'failed' => 0, 'due' => count( $groups['due'] ), 'error' => '' );
 		foreach ( $emails as $to ) {
 			$ok = wp_mail( $to, $subj, $body );
-			LGTKS_DB::add_notification( 0, LGTKS_Settings::now( 'Y-m-d' ), 1, 'manager_summary', $to, $subj, $ok ? 'sent' : 'failed', $ok ? 'wp_mail OK' : 'wp_mail απέτυχε (ελέγξτε SMTP)' );
+			LGTKS_DB::add_notification( 0, LGTKS_Settings::now( 'Y-m-d' ), 1, 'manager_summary', $to, ( $tag ? '[' . $tag . '] ' : '' ) . $subj, $ok ? 'sent' : 'failed', $ok ? 'wp_mail OK' : 'wp_mail απέτυχε (ελέγξτε SMTP)' );
 			$res[ $ok ? 'sent' : 'failed' ]++;
 		}
 		return $res;
