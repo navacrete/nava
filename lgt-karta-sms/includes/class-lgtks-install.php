@@ -25,11 +25,21 @@ class LGTKS_Install {
 			self::create_tables();
 			self::add_caps();
 			LGTKS_Settings::ensure_defaults();
+			self::migrate();
 			update_option( 'lgt_ks_db_version', LGT_KS_DB_VERSION );
 		}
 		if ( ! wp_next_scheduled( LGTKS_Cron::HOOK ) ) {
 			LGTKS_Cron::schedule();
 		}
+	}
+
+	/** Data migrations between versions. */
+	public static function migrate() {
+		global $wpdb;
+		$t = $wpdb->prefix . 'lgtks_employees';
+		// 1.1: notify_channel 'none' meant "excluded"; now that lives in notify_target.
+		$wpdb->query( "UPDATE {$t} SET notify_target = 'none', notify_channel = 'sms' WHERE notify_channel = 'none'" ); // phpcs:ignore WordPress.DB
+		$wpdb->query( "UPDATE {$t} SET notify_target = 'both' WHERE notify_target IS NULL OR notify_target = ''" ); // phpcs:ignore WordPress.DB
 	}
 
 	public static function add_caps() {
@@ -52,6 +62,7 @@ class LGTKS_Install {
 			mobile VARCHAR(40) NOT NULL DEFAULT '',
 			email VARCHAR(190) NOT NULL DEFAULT '',
 			notify_channel VARCHAR(10) NOT NULL DEFAULT 'sms',
+			notify_target VARCHAR(10) NOT NULL DEFAULT 'both',
 			external_id VARCHAR(100) NOT NULL DEFAULT '',
 			schedule TEXT NULL,
 			grace_minutes INT NULL,

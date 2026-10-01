@@ -195,6 +195,7 @@ class LGTKS_Evardia {
 						'mobile'         => '',
 						'email'          => '',
 						'notify_channel' => 'sms',
+						'notify_target'  => 'both',
 						'external_id'    => $r['afm'],
 						'schedule'       => array(),
 						'notes'          => 'Από eVardia' . ( $r['branch'] ? ' – ' . $r['branch'] : '' ),

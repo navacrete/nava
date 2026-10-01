@@ -37,7 +37,8 @@ class LGTKS_DB {
 		$row['grace_minutes'] = ( null === $row['grace_minutes'] || '' === $row['grace_minutes'] ) ? null : (int) $row['grace_minutes'];
 		$row['active']        = (int) $row['active'];
 		$row['email']         = isset( $row['email'] ) ? $row['email'] : '';
-		$row['notify_channel'] = ! empty( $row['notify_channel'] ) ? $row['notify_channel'] : 'sms';
+		$row['notify_channel'] = ! empty( $row['notify_channel'] ) && 'none' !== $row['notify_channel'] ? $row['notify_channel'] : 'sms';
+		$row['notify_target']  = ! empty( $row['notify_target'] ) ? $row['notify_target'] : 'both';
 		return $row;
 	}
 
@@ -59,7 +60,8 @@ class LGTKS_DB {
 			'name'          => sanitize_text_field( $data['name'] ?? '' ),
 			'mobile'        => sanitize_text_field( $data['mobile'] ?? '' ),
 			'email'         => sanitize_email( $data['email'] ?? '' ),
-			'notify_channel' => in_array( $data['notify_channel'] ?? 'sms', array( 'sms', 'email', 'both', 'none' ), true ) ? $data['notify_channel'] : 'sms',
+			'notify_channel' => in_array( $data['notify_channel'] ?? 'sms', array( 'sms', 'email', 'both' ), true ) ? $data['notify_channel'] : 'sms',
+			'notify_target'  => in_array( $data['notify_target'] ?? 'both', array( 'both', 'employee', 'manager', 'none' ), true ) ? $data['notify_target'] : 'both',
 			'external_id'   => sanitize_text_field( $data['external_id'] ?? '' ),
 			'schedule'      => wp_json_encode( $schedule ),
 			'grace_minutes' => ( isset( $data['grace_minutes'] ) && '' !== $data['grace_minutes'] && null !== $data['grace_minutes'] ) ? (int) $data['grace_minutes'] : null,
@@ -68,10 +70,10 @@ class LGTKS_DB {
 			'active'        => empty( $data['active'] ) ? 0 : 1,
 			'updated_at'    => current_time( 'mysql' ),
 		);
-		$fmt = array( '%s', '%s', '%s', '%s', '%s', '%s', '%d', '%s', '%s', '%d', '%s' );
+		$fmt = array( '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%d', '%s', '%s', '%d', '%s' );
 		if ( null === $row['grace_minutes'] ) {
 			unset( $row['grace_minutes'] );
-			unset( $fmt[6] );
+			unset( $fmt[7] );
 			$fmt = array_values( $fmt );
 		}
 		if ( $id ) {
@@ -164,7 +166,7 @@ class LGTKS_DB {
 	/** Employee notifications (sms + email) for a day, grouped by employee id. */
 	public static function notifications_for_day( $day ) {
 		global $wpdb;
-		$rows = $wpdb->get_results( $wpdb->prepare( 'SELECT * FROM ' . self::t( 'notifications' ) . " WHERE day = %s AND channel IN ('sms','email') ORDER BY created_at ASC", $day ), ARRAY_A ); // phpcs:ignore WordPress.DB
+		$rows = $wpdb->get_results( $wpdb->prepare( 'SELECT * FROM ' . self::t( 'notifications' ) . " WHERE day = %s AND channel IN ('sms','email','manager','manager_email') ORDER BY created_at ASC", $day ), ARRAY_A ); // phpcs:ignore WordPress.DB
 		$out  = array();
 		foreach ( $rows ? $rows : array() as $r ) {
 			$out[ (int) $r['employee_id'] ][] = $r;

@@ -128,10 +128,11 @@ class LGTKS_Checker {
 				if ( 'due' !== $r['status'] ) {
 					continue;
 				}
-				if ( 'none' === $r['employee']['notify_channel'] ) {
+				$target = $r['employee']['notify_target'];
+				if ( 'none' === $target ) {
 					continue; // excluded from notifications
 				}
-				if ( ! self::has_contact( $r['employee'] ) ) {
+				if ( 'manager' !== $target && ! self::has_contact( $r['employee'] ) ) {
 					$summary['no_contact'] = ( $summary['no_contact'] ?? 0 ) + 1;
 					continue; // nothing to send to (e.g. auto-created from eVardia without a mobile yet)
 				}
@@ -178,13 +179,15 @@ class LGTKS_Checker {
 		$vars    = self::vars( $row );
 		$msg     = strtr( (string) LGTKS_Settings::get( 'message_template' ), $vars );
 		$channel = isset( $e['notify_channel'] ) ? $e['notify_channel'] : 'sms';
-		if ( 'none' === $channel ) {
-			// Manual "send now" on an excluded employee: use whatever contact exists.
-			$channel = '' !== trim( $e['mobile'] ) ? 'sms' : 'email';
+		$target  = isset( $e['notify_target'] ) ? $e['notify_target'] : 'both';
+		if ( $force && 'none' === $target ) {
+			$target = 'both'; // manual "send now" overrides the exclusion
 		}
+		$to_emp = in_array( $target, array( 'both', 'employee' ), true );
+		$to_mgr = in_array( $target, array( 'both', 'manager' ), true );
 		$ok_any = false;
-		$res    = array( 'ok' => false, 'response' => 'δεν στάλθηκε SMS (κανάλι: ' . $channel . ')' );
-		if ( in_array( $channel, array( 'sms', 'both' ), true ) ) {
+		$res    = array( 'ok' => false, 'response' => $to_emp ? 'δεν στάλθηκε SMS (κανάλι: ' . $channel . ')' : 'ο εργαζόμενος δεν ειδοποιείται (μόνο υπεύθυνος)' );
+		if ( $to_emp && in_array( $channel, array( 'sms', 'both' ), true ) ) {
 			$res = LGTKS_SMS::send( $e['mobile'], $msg );
 			LGTKS_DB::add_notification( $e['id'], $day, $round, 'sms', $e['mobile'], $msg, $res['ok'] ? 'sent' : 'failed', $res['response'] );
 			if ( ! $res['ok'] ) {
@@ -192,7 +195,7 @@ class LGTKS_Checker {
 			}
 			$ok_any = $ok_any || $res['ok'];
 		}
-		if ( in_array( $channel, array( 'email', 'both' ), true ) ) {
+		if ( $to_emp && in_array( $channel, array( 'email', 'both' ), true ) ) {
 			$to = trim( (string) $e['email'] );
 			if ( '' === $to || ! is_email( $to ) ) {
 				LGTKS_DB::add_notification( $e['id'], $day, $round, 'email', $to, $msg, 'failed', 'Λείπει/άκυρο email εργαζομένου' );
@@ -203,23 +206,30 @@ class LGTKS_Checker {
 				$ok_any = $ok_any || $sent;
 			}
 		}
-		if ( 1 === (int) $round || $force ) {
+		$mgr_sent = false;
+		if ( $to_mgr && ( 1 === (int) $round || $force || ! $to_emp ) ) {
 			$mmsg = strtr( (string) LGTKS_Settings::get( 'manager_message_template' ), $vars );
 			$mch  = LGTKS_Settings::manager_channel();
+			if ( ! $to_emp && 'none' === $mch ) {
+				// Manager-only employee but managers have no automatic channel: fall back to email so someone is told.
+				$mch = 'email';
+			}
 			if ( in_array( $mch, array( 'both', 'sms' ), true ) ) {
 				foreach ( LGTKS_Settings::manager_mobiles() as $m ) {
 					$mr = LGTKS_SMS::send( $m, $mmsg );
 					LGTKS_DB::add_notification( $e['id'], $day, $round, 'manager', $m, $mmsg, $mr['ok'] ? 'sent' : 'failed', $mr['response'] );
+					$mgr_sent = $mgr_sent || $mr['ok'];
 				}
 			}
 			if ( in_array( $mch, array( 'both', 'email' ), true ) ) {
 				foreach ( LGTKS_Settings::manager_emails() as $email ) {
 					$sent = wp_mail( $email, '[Κάρτα εργασίας] ' . $e['name'] . ' – δεν χτύπησε κάρτα', $mmsg . "\n\nΕιδοποίηση εργαζομένου (" . $channel . '): ' . ( $ok_any ? 'εστάλη' : 'ΑΠΕΤΥΧΕ – ' . $res['response'] ) );
 					LGTKS_DB::add_notification( $e['id'], $day, $round, 'manager_email', $email, $mmsg, $sent ? 'sent' : 'failed', $sent ? 'wp_mail OK' : 'wp_mail απέτυχε' );
+					$mgr_sent = $mgr_sent || $sent;
 				}
 			}
 		}
-		return $ok_any;
+		return $to_emp ? $ok_any : $mgr_sent;
 	}
 
 	/**
@@ -246,7 +256,7 @@ class LGTKS_Checker {
 			}
 			if ( 'due' === $k ) {
 				$line .= ' – καθυστέρηση ' . max( 0, (int) $r['late_min'] ) . '′';
-				if ( 'none' === $e['notify_channel'] ) {
+				if ( 'none' === $e['notify_target'] ) {
 					$line .= ' (εξαιρείται από ειδοποιήσεις)';
 				} elseif ( $r['sms'] ) {
 					$line .= ' (ειδοποιήθηκε ' . substr( end( $r['sms'] )['created_at'], 11, 5 ) . ')';
