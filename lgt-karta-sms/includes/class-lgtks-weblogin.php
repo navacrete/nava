@@ -12,6 +12,15 @@ class LGTKS_WebLogin {
 
 	const COOKIE_TRANSIENT = 'lgtks_weblogin_cookies';
 
+	/** Diagnostics of the last login attempt (shown by the settings test). */
+	public static $debug = array();
+
+	const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36 LGT-Karta-SMS';
+
+	private static function headers( array $extra = array() ) {
+		return array_merge( array( 'User-Agent' => self::UA, 'Accept-Language' => 'el-GR,el;q=0.9,en;q=0.8' ), $extra );
+	}
+
 	/** Config from the generic web_login settings. */
 	public static function cfg_from_settings() {
 		return array(
@@ -62,7 +71,8 @@ class LGTKS_WebLogin {
 				'timeout'     => 30,
 				'cookies'     => $cookies,
 				'redirection' => 5,
-				'headers'     => array( 'Accept' => 'application/json, text/html, text/csv, */*' ),
+				'user-agent'  => self::UA,
+				'headers'     => self::headers( array( 'Accept' => 'application/json, text/html, text/csv, */*' ) ),
 			)
 		);
 		if ( is_wp_error( $resp ) ) {
@@ -105,8 +115,9 @@ class LGTKS_WebLogin {
 		if ( '' === $login_url ) {
 			return new WP_Error( 'lgtks', 'Λείπει το URL σύνδεσης.' );
 		}
+		self::$debug = array( 'requested_login_url' => $login_url );
 		// 1. GET the login page: cookies + hidden fields.
-		$resp = wp_remote_get( $login_url, array( 'timeout' => 30, 'redirection' => 5 ) );
+		$resp = wp_remote_get( $login_url, array( 'timeout' => 30, 'redirection' => 5, 'user-agent' => self::UA, 'headers' => self::headers() ) );
 		if ( is_wp_error( $resp ) ) {
 			return $resp;
 		}
@@ -116,6 +127,9 @@ class LGTKS_WebLogin {
 		}
 		$cookies = self::merge_cookies( array(), $resp );
 		$html    = (string) wp_remote_retrieve_body( $resp );
+		self::$debug['login_page_url']  = $login_url;
+		self::$debug['login_page_http'] = (int) wp_remote_retrieve_response_code( $resp );
+		self::$debug['cookies_after_get'] = array_keys( $cookies );
 		if ( ! self::looks_like_login_page( $html ) ) {
 			return new WP_Error( 'lgtks', 'Η σελίδα «' . $login_url . '» δεν περιέχει φόρμα σύνδεσης (πεδίο κωδικού). Δώστε το ακριβές URL login.' );
 		}
@@ -125,6 +139,14 @@ class LGTKS_WebLogin {
 		if ( $form && '' !== $form['user_field'] && 'username' === $uf ) {
 			$uf = $form['user_field']; // auto-detected name of the text input next to the password.
 		}
+		if ( $form && '' !== $form['pass_field'] && ( 'password' === $pf || ! array_key_exists( $pf, $form['all_names'] ) ) ) {
+			$pf = $form['pass_field']; // auto-detected name of the password input.
+		}
+		self::$debug['form_found']  = (bool) $form;
+		self::$debug['form_action'] = $action;
+		self::$debug['user_field']  = $uf;
+		self::$debug['pass_field']  = $pf;
+		self::$debug['form_fields'] = $form ? array_keys( $form['all_names'] ) : array();
 		$fields[ $uf ] = $user;
 		$fields[ $pf ] = $pass;
 		foreach ( preg_split( '/\r\n|\r|\n/', (string) $cfg['extra_fields'] ) as $line ) {
@@ -141,7 +163,8 @@ class LGTKS_WebLogin {
 				'redirection' => 0,
 				'cookies'     => $cookies,
 				'body'        => $fields,
-				'headers'     => array( 'Referer' => $login_url ),
+				'user-agent'  => self::UA,
+				'headers'     => self::headers( array( 'Referer' => $login_url, 'Origin' => preg_replace( '#^(https?://[^/]+).*$#', '$1', $action ) ) ),
 			)
 		);
 		if ( is_wp_error( $resp ) ) {
@@ -150,11 +173,15 @@ class LGTKS_WebLogin {
 		$cookies = self::merge_cookies( $cookies, $resp );
 		$code    = (int) wp_remote_retrieve_response_code( $resp );
 		$body    = (string) wp_remote_retrieve_body( $resp );
+		self::$debug['post_http']     = $code;
+		self::$debug['post_location'] = (string) wp_remote_retrieve_header( $resp, 'location' );
+		self::$debug['cookies_after_post'] = array_keys( $cookies );
+		self::$debug['post_body_text'] = mb_substr( trim( preg_replace( '/\s+/u', ' ', wp_strip_all_tags( preg_replace( '#<(script|style)[^>]*>.*?</\1>#si', ' ', $body ) ) ) ), 0, 1200 );
 		// 3. Follow one redirect manually (typical after a successful login) to collect more cookies.
 		$loc = wp_remote_retrieve_header( $resp, 'location' );
 		if ( $loc && in_array( $code, array( 301, 302, 303, 307 ), true ) ) {
 			$next = self::absolute_url( $loc, $action );
-			$r2   = wp_remote_get( $next, array( 'timeout' => 30, 'redirection' => 3, 'cookies' => $cookies ) );
+			$r2   = wp_remote_get( $next, array( 'timeout' => 30, 'redirection' => 3, 'cookies' => $cookies, 'user-agent' => self::UA, 'headers' => self::headers() ) );
 			if ( ! is_wp_error( $r2 ) ) {
 				$cookies = self::merge_cookies( $cookies, $r2 );
 				$body    = (string) wp_remote_retrieve_body( $r2 );
@@ -409,13 +436,19 @@ class LGTKS_WebLogin {
 			}
 			$fields     = array();
 			$user_field = '';
+			$pass_name  = '';
+			$all        = array();
 			foreach ( $inputs as $in ) {
 				$name = (string) $in->getAttribute( 'name' );
 				$type = strtolower( (string) $in->getAttribute( 'type' ) );
 				if ( '' === $name ) {
 					continue;
 				}
+				$all[ $name ] = $type;
 				if ( 'password' === $type ) {
+					if ( '' === $pass_name ) {
+						$pass_name = $name;
+					}
 					continue;
 				}
 				if ( in_array( $type, array( 'text', 'email', '' ), true ) && '' === $user_field ) {
@@ -432,7 +465,7 @@ class LGTKS_WebLogin {
 			}
 			$action = (string) $form->getAttribute( 'action' );
 			$action = '' === $action ? $page_url : self::absolute_url( html_entity_decode( $action ), $page_url );
-			return array( 'action' => $action, 'fields' => $fields, 'user_field' => $user_field );
+			return array( 'action' => $action, 'fields' => $fields, 'user_field' => $user_field, 'pass_field' => $pass_name, 'all_names' => $all );
 		}
 		return null;
 	}

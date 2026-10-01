@@ -208,7 +208,7 @@ class LGTKS_Admin {
 		self::guard( 'sync' );
 		$r = LGTKS_Source::sync();
 		if ( is_wp_error( $r ) ) {
-			self::back( '', 'Σφάλμα συγχρονισμού: ' . $r->get_error_message(), 'error' );
+			self::back( '', 'Σφάλμα συγχρονισμού: ' . $r->get_error_message() . ' Για λεπτομέρειες πατήστε «Δοκιμή πηγής» στις Ρυθμίσεις.', 'error' );
 		}
 		$u = ! empty( $r['unmatched'] ) ? ' Χωρίς αντιστοίχιση (προσθέστε τον κωδικό στον εργαζόμενο): ' . implode( ', ', array_slice( $r['unmatched'], 0, 15 ) ) : '';
 		self::back( '', sprintf( 'Συγχρονισμός: %d εγγραφές, %d αντιστοιχίστηκαν, %d νέες.%s', $r['records'], $r['matched'], $r['new'], $u ), $u ? 'warning' : 'success' );
@@ -382,7 +382,10 @@ class LGTKS_Admin {
 		$v = LGTKS_Settings::get( $key );
 		if ( 'password' === $type && in_array( $key, array( 'ev_password', 'wl_password' ), true ) ) {
 			$v = ''; // never echo stored passwords; empty on save = keep
-			$desc .= ( '' !== (string) LGTKS_Settings::get( $key ) ) ? ' <em>(έχει αποθηκευτεί κωδικός)</em>' : '';
+			if ( '' !== (string) LGTKS_Settings::get( $key ) ) {
+				$attrs .= ' placeholder="•••••••• (αποθηκευμένος – αφήστε κενό για να μείνει ίδιος)"';
+				$desc   = '<strong style="color:#0a5c22">Ο κωδικός είναι αποθηκευμένος.</strong> Το πεδίο εμφανίζεται κενό για ασφάλεια· γράψτε εδώ μόνο αν θέλετε να τον αλλάξετε. ' . $desc;
+			}
 		}
 		echo '<tr><th><label for="' . esc_attr( $key ) . '">' . esc_html( $label ) . '</label></th><td><input type="' . esc_attr( $type ) . '" id="' . esc_attr( $key ) . '" name="s[' . esc_attr( $key ) . ']" class="regular-text" value="' . esc_attr( $v ) . '" ' . $attrs . '>' . ( $desc ? '<p class="description">' . wp_kses_post( $desc ) . '</p>' : '' ) . '</td></tr>';
 	}
@@ -605,7 +608,7 @@ class LGTKS_Admin {
 			delete_transient( LGTKS_Evardia::PAGE_TRANSIENT );
 			$html = LGTKS_Evardia::get_page( true );
 			if ( is_wp_error( $html ) ) {
-				set_transient( 'lgtks_test_' . get_current_user_id(), array( 'title' => 'eVardia – σφάλμα σύνδεσης', 'body' => $html->get_error_message() ), 120 );
+				set_transient( 'lgtks_test_' . get_current_user_id(), array( 'title' => 'eVardia – σφάλμα σύνδεσης', 'body' => $html->get_error_message() . "\n\n--- Διαγνωστικά (αντιγράψτε τα και στείλτε τα) ---\n" . wp_json_encode( LGTKS_WebLogin::$debug, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT ) ), 120 );
 				self::back( 'settings', 'Η σύνδεση στο eVardia απέτυχε.', 'error' );
 			}
 			$rows = LGTKS_Evardia::parse_page( $html );
@@ -638,6 +641,9 @@ class LGTKS_Admin {
 				if ( ! is_wp_error( $raw ) ) {
 					$extra = "\n\n--- Πρώτοι 3000 χαρακτήρες της σελίδας δεδομένων (στείλτε τους για ρύθμιση) ---\n" . mb_substr( $raw, 0, 3000 );
 				}
+			}
+			if ( 'web_login' === $type && LGTKS_WebLogin::$debug ) {
+				$extra .= "\n\n--- Διαγνωστικά login ---\n" . wp_json_encode( LGTKS_WebLogin::$debug, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_PRETTY_PRINT );
 			}
 			set_transient( 'lgtks_test_' . get_current_user_id(), array( 'title' => 'Σφάλμα πηγής', 'body' => $recs->get_error_message() . $extra ), 120 );
 			self::back( 'settings', 'Η λήψη απέτυχε.', 'error' );
