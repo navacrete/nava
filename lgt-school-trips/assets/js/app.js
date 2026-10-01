@@ -410,9 +410,12 @@
 		return html;
 	}
 
+	/* Room label as the school sees it: type code + number within the type (DBL-2). */
 	function roomLabel(roomId) {
 		var r = S.rooms.filter(function (x) { return x.id === roomId; })[0];
-		return r ? r.label : '';
+		if (!r) { return ''; }
+		var same = S.rooms.filter(function (x) { return x.kind === r.kind && x.type_code === r.type_code; });
+		return (r.type_code || 'X' + r.capacity) + '-' + (same.indexOf(r) + 1);
 	}
 
 	function rowValues(pid) {
@@ -505,7 +508,11 @@
 		return true;
 	}
 
-	/* ---------------- Rooms / cabins (column sheet, like the paper rooming list) ---------------- */
+	/* ---------------- Rooms / cabins: the paper rooming list, online ---------------- */
+
+	var boxCount = {}, showSingles = {};
+	function colKey(kind, code) { return kind + '|' + code; }
+	function defaultBoxes() { return 4; }
 
 	function viewRooms(kind) {
 		var t = S.trip, ro = readonly(), rooms = roomsOf(kind), types = typesOf(kind).slice();
@@ -514,58 +521,89 @@
 		var otherHas = kind === 'hotel' ? t.has_ferry : t.has_hotel;
 		var un = unassigned(kind);
 		var word = kindLabel(kind), words = kindLabel(kind, true);
+		var singles = types.filter(function (ty) { return ty.capacity === 1; });
+		var hasSingleRooms = rooms.some(function (r) { return singles.some(function (ty) { return ty.code === r.type_code; }); });
+		var singlesOn = hasSingleRooms || !!showSingles[kind];
+		var visibleTypes = types.filter(function (ty) { return ty.capacity !== 1 || singlesOn; });
 		var html = '';
 		var notes = kind === 'hotel' ? t.hotel_notes : t.ferry_notes;
 		if (notes) { html += '<div class="lgt-notes-box">' + h(notes) + '</div>'; }
+
 		html += '<div class="lgt-toolbar">';
 		if (!ro) {
-			html += '<button class="lgt-btn lgt-btn-primary" data-act="auto" data-kind="' + kind + '">✨ Αυτόματη κατανομή</button>';
+			html += '<button class="lgt-btn lgt-btn-primary" data-act="auto" data-kind="' + kind + '" title="Βάζει όλους σε ' + words.toLowerCase() + ' ανά φύλο και τμήμα">✨ Αυτόματη κατανομή</button>';
 			if (otherHas && roomsOf(other).length) { html += '<button class="lgt-btn" data-act="copy" data-kind="' + kind + '">⇄ Ίδιες παρέες με ' + kindLabel(other, true).toLowerCase() + '</button>'; }
+			if (singles.length && !hasSingleRooms) { html += '<button class="lgt-btn" data-act="toggleSingles" data-kind="' + kind + '">' + (singlesOn ? '− Αφαίρεση μονόκλινων' : '+ Προσθήκη μονόκλινων') + '</button>'; }
 			if (rooms.length) { html += '<button class="lgt-btn lgt-btn-danger lgt-btn-sm" data-act="clear" data-kind="' + kind + '">Καθαρισμός</button>'; }
 		}
 		html += '<span class="lgt-spacer"></span>';
 		html += '<a class="lgt-btn lgt-btn-sm" href="' + h(dlUrl('xlsx', kind === 'hotel' ? 'rooming' : 'cabins')) + '">⬇ Excel</a><a class="lgt-btn lgt-btn-sm" href="' + h(dlUrl('pdf', kind === 'hotel' ? 'rooming' : 'cabins')) + '">⬇ PDF</a>';
 		html += '</div>';
-		if (!ro && !rooms.length && active().length) {
-			html += '<div class="lgt-alert lgt-alert-info lgt-small">Πατήστε <b>«Αυτόματη κατανομή»</b> για να μπουν όλοι σε ' + words.toLowerCase() + ' ανά φύλο και τμήμα, ή προσθέστε ' + words.toLowerCase() + ' στις στήλες και επιλέξτε ονόματα σε κάθε θέση. Μπορείτε επίσης να σύρετε ονόματα από ' + word.toLowerCase() + ' σε ' + word.toLowerCase() + '.</div>';
+		if (!ro) {
+			html += '<div class="lgt-alert lgt-alert-info lgt-small">Κάθε κουτάκι είναι ένα ' + word.toLowerCase() + '. <b>Γράψτε το όνομα σε κάθε θέση</b> (συμπληρώνεται από τη λίστα των ονομάτων) ή πατήστε «Αυτόματη κατανομή». Τα κουτάκια που μένουν κενά δεν μετράνε.</div>';
 		}
+
 		/* Totals like the paper sheet */
 		html += '<div class="lgt-totals">';
 		html += '<div class="lgt-total"><span>Σύνολο ' + words.toLowerCase() + '</span><b>' + rooms.length + '</b></div>';
-		types.forEach(function (ty) { var n = rooms.filter(function (r) { return r.type_code === ty.code; }).length; html += '<div class="lgt-total"><span>' + h(ty.label) + '</span><b>' + n + '</b></div>'; });
+		visibleTypes.forEach(function (ty) { var n = rooms.filter(function (r) { return r.type_code === ty.code; }).length; html += '<div class="lgt-total"><span>' + h(ty.label) + '</span><b>' + n + '</b></div>'; });
 		html += '<div class="lgt-total ' + (un.length ? 'lgt-total-warn' : 'lgt-total-ok') + '"><span>Χωρίς ' + word.toLowerCase() + '</span><b>' + un.length + '</b></div>';
 		html += '</div>';
 
-		/* Unassigned strip */
+		/* Who is still without a room (compact, draggable) */
 		html += '<div class="lgt-pool' + (un.length ? '' : ' lgt-pool-empty') + '" data-drop="0" data-kind="' + kind + '">';
 		if (un.length) {
-			html += '<div class="lgt-pool-title">Χωρίς ' + word.toLowerCase() + ' (' + un.length + ') – σύρετε σε μια θέση ή επιλέξτε το όνομα μέσα στο ' + word.toLowerCase() + '</div><div class="lgt-pool-list">';
+			html += '<div class="lgt-pool-title">Δεν έχουν ακόμη ' + word.toLowerCase() + ' (' + un.length + '):</div><div class="lgt-pool-list">';
 			un.sort(function (a, b) { return natSort((a.ptype === 'student' ? '1' : '0') + a.class_name + a.gender + fullName(a), (b.ptype === 'student' ? '1' : '0') + b.class_name + b.gender + fullName(b)); }).forEach(function (p) { html += chipHtml(p, kind, false); });
 			html += '</div>';
 		} else {
-			html += '<div class="lgt-pool-title">' + (active().length ? '🎉 Όλοι έχουν ' + word.toLowerCase() + '. Σύρετε ένα όνομα εδώ για να το αφαιρέσετε.' : 'Δεν υπάρχουν ακόμη συμμετέχοντες – συμπληρώστε πρώτα τα ονόματα.') + '</div>';
+			html += '<div class="lgt-pool-title">' + (active().length ? '✅ Όλοι έχουν ' + word.toLowerCase() + '.' : 'Δεν υπάρχουν ακόμη ονόματα – συμπληρώστε πρώτα το βήμα 1.') + '</div>';
 		}
 		html += '</div>';
 
-		/* Columns per type */
+		/* Shared name list for the slot inputs */
+		html += '<datalist id="lgt-names-' + kind + '">' + un.map(function (p) { return '<option value="' + h(slotValue(p, un)) + '">'; }).join('') + '</datalist>';
+
+		/* Columns per type, each with ready-made empty boxes */
 		var known = {};
 		types.forEach(function (ty) { known[ty.code] = 1; });
 		var extra = rooms.filter(function (r) { return !known[r.type_code]; });
 		html += '<div class="lgt-sheet">';
-		types.forEach(function (ty) {
+		visibleTypes.forEach(function (ty) {
 			var list = rooms.filter(function (r) { return r.type_code === ty.code; });
-			html += '<div class="lgt-col"><div class="lgt-col-title">' + h(ty.label) + '<small>' + h(ty.code) + ' · ' + ty.capacity + ' άτομα · ' + list.length + ' ' + words.toLowerCase() + '</small></div>';
-			list.forEach(function (r) { html += roomBoxHtml(r, kind, un, ro); });
-			if (!ro) { html += '<button class="lgt-btn lgt-btn-sm lgt-col-add" data-act="addRoom" data-kind="' + kind + '" data-type="' + h(ty.code) + '">+ ' + word + '</button>'; }
+			var k = colKey(kind, ty.code);
+			var want = boxCount[k] === undefined ? defaultBoxes() : boxCount[k];
+			var total = ro ? list.length : Math.max(want, list.length);
+			html += '<div class="lgt-col"><div class="lgt-col-head"><div class="lgt-col-title">' + h(ty.label) + '<small>' + ty.capacity + ' ' + (ty.capacity === 1 ? 'άτομο' : 'άτομα') + '</small></div>';
+			if (!ro) { html += '<div class="lgt-col-actions"><button class="lgt-btn lgt-btn-xs" data-act="addBox" data-kind="' + kind + '" data-type="' + h(ty.code) + '">+ ' + word + '</button><button class="lgt-btn lgt-btn-xs" data-act="removeBox" data-kind="' + kind + '" data-type="' + h(ty.code) + '"' + (total <= 1 ? ' disabled' : '') + '>− ' + word + '</button></div>'; }
+			html += '</div>';
+			list.forEach(function (r, i) { html += roomBoxHtml(r, kind, ro, i + 1); });
+			for (var i = list.length; i < total; i++) { html += virtualBoxHtml(kind, ty, i + 1); }
 			html += '</div>';
 		});
 		if (extra.length) {
-			html += '<div class="lgt-col"><div class="lgt-col-title">Άλλα<small>' + extra.length + '</small></div>';
-			extra.forEach(function (r) { html += roomBoxHtml(r, kind, un, ro); });
+			html += '<div class="lgt-col"><div class="lgt-col-head"><div class="lgt-col-title">Άλλα</div></div>';
+			extra.forEach(function (r, i) { html += roomBoxHtml(r, kind, ro, i + 1); });
 			html += '</div>';
 		}
 		html += '</div>';
 		return html;
+	}
+
+	/* Value shown in the name list; disambiguates namesakes with the class. */
+	function slotValue(p, pool) {
+		var dup = pool.filter(function (x) { return fullName(x) === fullName(p); }).length > 1;
+		return fullName(p) + (dup && p.class_name ? ' (' + p.class_name + ')' : '');
+	}
+	function findByTyped(kind, typed) {
+		var pool = unassigned(kind), v = typed.trim().toLowerCase();
+		if (!v) { return null; }
+		var exact = pool.filter(function (p) { return slotValue(p, pool).toLowerCase() === v || fullName(p).toLowerCase() === v || (p.first_name + ' ' + p.last_name).toLowerCase() === v; });
+		if (exact.length === 1) { return exact[0]; }
+		var starts = pool.filter(function (p) { return fullName(p).toLowerCase().indexOf(v) === 0 || latName(p).toLowerCase().indexOf(v) === 0; });
+		if (starts.length === 1) { return starts[0]; }
+		var contains = pool.filter(function (p) { return fullName(p).toLowerCase().indexOf(v) >= 0; });
+		return contains.length === 1 ? contains[0] : null;
 	}
 
 	function chipHtml(p, kind, inRoom) {
@@ -574,39 +612,55 @@
 			+ '<span class="lgt-sex lgt-sex-' + (p.gender || 'U') + '">' + (p.gender === 'M' ? 'Α' : (p.gender === 'F' ? 'Κ' : '?')) + '</span>'
 			+ '<span class="lgt-chip-name">' + h(fullName(p)) + '</span>'
 			+ (p.class_name ? '<span class="lgt-chip-cls">' + h(p.class_name) + '</span>' : '') + (p.ptype !== 'student' ? '<span class="lgt-chip-cls">' + ptypeLabel(p.ptype) + '</span>' : '')
-			+ (inRoom && !ro ? '<button class="lgt-chip-x" data-act="unassign" data-pid="' + p.id + '" data-kind="' + kind + '" title="Αφαίρεση">✕</button>' : '')
+			+ (inRoom && !ro ? '<button class="lgt-chip-x" data-act="unassign" data-pid="' + p.id + '" data-kind="' + kind + '" title="Αφαίρεση από το ' + kindLabel(kind).toLowerCase() + '">✕</button>' : '')
 			+ '</div>';
 	}
 
-	function roomBoxHtml(r, kind, un, ro) {
+	function slotInputHtml(kind, target) {
+		return '<input type="text" class="lgt-slot-input" list="lgt-names-' + kind + '" placeholder="Όνομα…" autocomplete="off" data-slot="' + target + '" data-kind="' + kind + '">';
+	}
+
+	function roomBoxHtml(r, kind, ro, idx) {
 		var mem = membersOf(r.id), n = mem.length, slots = Math.max(r.capacity, n);
 		var genders = {};
 		mem.forEach(function (p) { if (p.gender) { genders[p.gender] = 1; } });
 		var mixed = Object.keys(genders).length > 1;
 		var html = '<div class="lgt-room' + (mixed ? ' lgt-room-mixed' : '') + (n > r.capacity ? ' lgt-room-over' : '') + '" data-drop="' + r.id + '" data-kind="' + kind + '">';
-		html += '<div class="lgt-room-head"><span class="lgt-room-label" data-act="renameRoom" data-rid="' + r.id + '">' + kindLabel(kind) + ' ' + h(r.label) + '</span><span class="lgt-room-cap ' + (n > r.capacity ? 'lgt-over' : (n === r.capacity ? 'lgt-full' : '')) + '">' + n + '/' + r.capacity + '</span>' + (ro ? '' : '<button class="lgt-btn-icon lgt-room-del" data-act="deleteRoom" data-rid="' + r.id + '" title="Διαγραφή ' + kindLabel(kind).toLowerCase() + '">🗑</button>') + '</div>';
-		if (mixed) { html += '<div class="lgt-room-notes">⚠ Μικτό φύλο</div>'; }
+		html += '<div class="lgt-room-head"><span class="lgt-room-label">' + kindLabel(kind) + ' ' + idx + '</span><span class="lgt-room-cap ' + (n > r.capacity ? 'lgt-over' : (n === r.capacity ? 'lgt-full' : '')) + '">' + n + '/' + r.capacity + '</span>' + (ro ? '' : '<button class="lgt-btn-icon lgt-room-del" data-act="deleteRoom" data-rid="' + r.id + '" title="Άδειασμα – τα ονόματα επιστρέφουν στη λίστα">✕</button>') + '</div>';
+		if (mixed) { html += '<div class="lgt-room-notes">⚠ Αγόρι και κορίτσι στο ίδιο ' + kindLabel(kind).toLowerCase() + '</div>'; }
 		if (n > r.capacity) { html += '<div class="lgt-room-notes">⚠ Περισσότερα άτομα από τις θέσεις</div>'; }
 		for (var i = 0; i < slots; i++) {
 			if (mem[i]) { html += '<div class="lgt-slot lgt-slot-filled">' + chipHtml(mem[i], kind, true) + '</div>'; }
-			else if (ro) { html += '<div class="lgt-slot lgt-slot-empty"><span class="lgt-muted">κενή θέση</span></div>'; }
-			else { html += '<div class="lgt-slot lgt-slot-empty">' + slotSelectHtml(r, kind, un) + '</div>'; }
+			else if (ro) { html += '<div class="lgt-slot lgt-slot-empty"><span class="lgt-muted lgt-small">κενή θέση</span></div>'; }
+			else { html += '<div class="lgt-slot lgt-slot-empty">' + slotInputHtml(kind, 'r:' + r.id) + '</div>'; }
 		}
 		html += '</div>';
 		return html;
 	}
 
-	function slotSelectHtml(r, kind, un) {
-		var groups = {};
-		un.forEach(function (p) {
-			var key = p.ptype === 'student' ? ((p.class_name || 'Χωρίς τμήμα') + ' · ' + (p.gender === 'M' ? 'Αγόρια' : (p.gender === 'F' ? 'Κορίτσια' : 'Χωρίς φύλο'))) : 'Συνοδοί';
-			(groups[key] = groups[key] || []).push(p);
-		});
-		var html = '<select class="lgt-slot-pick" data-act="slotPick" data-rid="' + r.id + '" data-kind="' + kind + '"><option value="">' + (un.length ? '— επιλέξτε όνομα —' : '— κενή θέση —') + '</option>';
-		Object.keys(groups).sort(natSort).forEach(function (k) {
-			html += '<optgroup label="' + h(k) + '">' + groups[k].map(function (p) { return '<option value="' + p.id + '">' + h(fullName(p)) + '</option>'; }).join('') + '</optgroup>';
-		});
-		return html + '</select>';
+	/* An empty box that becomes a real room the moment a name is placed in it. */
+	function virtualBoxHtml(kind, ty, idx) {
+		var html = '<div class="lgt-room lgt-room-virtual" data-drop="v" data-type="' + h(ty.code) + '" data-kind="' + kind + '">';
+		html += '<div class="lgt-room-head"><span class="lgt-room-label">' + kindLabel(kind) + ' ' + idx + '</span><span class="lgt-room-cap">0/' + ty.capacity + '</span></div>';
+		for (var i = 0; i < ty.capacity; i++) { html += '<div class="lgt-slot lgt-slot-empty">' + slotInputHtml(kind, 'v:' + ty.code) + '</div>'; }
+		html += '</div>';
+		return html;
+	}
+
+	/* Place a participant into a real room, or create the room first for a virtual box. */
+	function placeInto(kind, target, pid) {
+		if (target.charAt(0) === 'r') {
+			var rid = parseInt(target.slice(2), 10);
+			if (roomOf(kind, pid) === rid) { return; }
+			if (!confirmOverfill(rid, 1)) { render(); return; }
+			call('POST', '/rooms/assign', { kind: kind, room_id: rid, participant_ids: [pid] });
+			return;
+		}
+		var code = target.slice(2);
+		api('POST', '/rooms', { kind: kind, type_code: code, count: 1 }).then(function (res) {
+			applyState(res);
+			return call('POST', '/rooms/assign', { kind: kind, room_id: res.created_id, participant_ids: [pid] });
+		}).catch(function (e) { toast(e.message, 'err'); });
 	}
 
 	/* ---------------- Manifests ---------------- */
@@ -1014,10 +1068,11 @@
 			el.addEventListener('dragstart', function (e) {
 				dragPid = parseInt(el.getAttribute('data-pid'), 10);
 				el.classList.add('lgt-dragging');
+				root.classList.add('lgt-drag-on');
 				try { e.dataTransfer.setData('text/plain', String(dragPid)); } catch (err) { /* ignore */ }
 				e.dataTransfer.effectAllowed = 'move';
 			});
-			el.addEventListener('dragend', function () { el.classList.remove('lgt-dragging'); dragPid = null; });
+			el.addEventListener('dragend', function () { el.classList.remove('lgt-dragging'); root.classList.remove('lgt-drag-on'); dragPid = null; });
 		});
 		root.querySelectorAll('[data-drop]').forEach(function (zone) {
 			zone.addEventListener('dragover', function (e) { e.preventDefault(); zone.classList.add('lgt-drop-hover'); e.dataTransfer.dropEffect = 'move'; });
@@ -1028,7 +1083,10 @@
 				zone.classList.remove('lgt-drop-hover');
 				var pid = dragPid || parseInt(e.dataTransfer.getData('text/plain'), 10);
 				if (!pid) { return; }
-				var roomId = parseInt(zone.getAttribute('data-drop'), 10), kind = zone.getAttribute('data-kind');
+				root.classList.remove('lgt-drag-on');
+				var drop = zone.getAttribute('data-drop'), kind = zone.getAttribute('data-kind');
+				if (drop === 'v') { placeInto(kind, 'v:' + zone.getAttribute('data-type'), pid); return; }
+				var roomId = parseInt(drop, 10);
 				if (roomId && roomOf(kind, pid) === roomId) { return; }
 				if (roomId && !confirmOverfill(roomId, 1)) { return; }
 				call('POST', '/rooms/assign', { kind: kind, room_id: roomId, participant_ids: [pid] });
@@ -1076,8 +1134,24 @@
 			case 'import': importWizard(); break;
 			case 'importPreview': importPreview(); break;
 			case 'importRun': importRun(); break;
-			case 'addRoom':
-				call('POST', '/rooms', { kind: kind, type_code: btn.getAttribute('data-type') || '', count: 1 });
+			case 'addBox':
+				var kb = colKey(kind, btn.getAttribute('data-type'));
+				var realN = roomsOf(kind).filter(function (r) { return r.type_code === btn.getAttribute('data-type'); }).length;
+				boxCount[kb] = Math.max(boxCount[kb] === undefined ? defaultBoxes() : boxCount[kb], realN) + 1;
+				render();
+				break;
+			case 'removeBox':
+				var kr = colKey(kind, btn.getAttribute('data-type'));
+				var real = roomsOf(kind).filter(function (r) { return r.type_code === btn.getAttribute('data-type'); });
+				var cur = Math.max(boxCount[kr] === undefined ? defaultBoxes() : boxCount[kr], real.length);
+				if (cur > real.length) { boxCount[kr] = cur - 1; render(); break; }
+				var lastEmpty = real.slice().reverse().filter(function (r) { return !membersOf(r.id).length; })[0];
+				if (lastEmpty) { boxCount[kr] = real.length - 1; call('DELETE', '/rooms/' + lastEmpty.id); }
+				else { toast('Όλα τα ' + kindLabel(kind, true).toLowerCase() + ' της στήλης έχουν ονόματα. Αδειάστε πρώτα ένα (✕).', 'err'); }
+				break;
+			case 'toggleSingles':
+				showSingles[kind] = !showSingles[kind];
+				render();
 				break;
 			case 'moreRows':
 				ensureBlankRows(blankRows.length + 10);
@@ -1095,13 +1169,11 @@
 				break;
 			case 'deleteRoom':
 				var rm = S.rooms.filter(function (x) { return x.id === rid; })[0];
-				if (rm && (!membersOf(rid).length || window.confirm('Διαγραφή ' + kindLabel(rm.kind).toLowerCase() + ' ' + rm.label + '; Τα άτομα θα μείνουν χωρίς ' + kindLabel(rm.kind).toLowerCase() + '.'))) { call('DELETE', '/rooms/' + rid); }
-				break;
-			case 'renameRoom':
-				if (readonly()) { break; }
-				var r0 = S.rooms.filter(function (x) { return x.id === rid; })[0];
-				var nl = window.prompt('Αριθμός / όνομα ' + kindLabel(r0.kind).toLowerCase() + ':', r0.label);
-				if (nl !== null && nl.trim() !== '' && nl !== r0.label) { call('PUT', '/rooms/' + rid, { label: nl.trim() }); }
+				if (rm && (!membersOf(rid).length || window.confirm('Άδειασμα του ' + kindLabel(rm.kind).toLowerCase() + '; Τα ονόματα επιστρέφουν στη λίστα «χωρίς ' + kindLabel(rm.kind).toLowerCase() + '».'))) {
+					var kd = colKey(rm.kind, rm.type_code), realD = roomsOf(rm.kind).filter(function (r) { return r.type_code === rm.type_code; }).length;
+					boxCount[kd] = Math.max(boxCount[kd] === undefined ? defaultBoxes() : boxCount[kd], realD);
+					call('DELETE', '/rooms/' + rid);
+				}
 				break;
 			case 'unassign': call('POST', '/rooms/assign', { kind: kind, room_id: 0, participant_ids: [pid] }); break;
 			case 'submit':
@@ -1138,9 +1210,17 @@
 		var role = el.getAttribute('data-role');
 		if (role === 'classFilter') { S.classFilter = el.value; render(); return; }
 		if (role === 'showCancelled') { S.showCancelled = el.checked; render(); return; }
-		if (el.getAttribute('data-act') === 'slotPick') {
-			var pid = parseInt(el.value, 10);
-			if (pid) { call('POST', '/rooms/assign', { kind: el.getAttribute('data-kind'), room_id: parseInt(el.getAttribute('data-rid'), 10), participant_ids: [pid] }); }
+		if (el.getAttribute('data-slot')) {
+			var kindS = el.getAttribute('data-kind'), typed = el.value;
+			if (!typed.trim()) { return; }
+			var found = findByTyped(kindS, typed);
+			if (!found) {
+				var any = active().filter(function (p) { return fullName(p).toLowerCase().indexOf(typed.trim().toLowerCase()) >= 0; })[0];
+				toast(any ? 'Ο/η ' + fullName(any) + ' έχει ήδη ' + kindLabel(kindS).toLowerCase() + '. Αφαιρέστε τον/την πρώτα από εκεί (✕).' : 'Το όνομα «' + typed.trim() + '» δεν υπάρχει στη λίστα ονομάτων. Προσθέστε το πρώτα στο βήμα 1.', 'err');
+				el.value = '';
+				return;
+			}
+			placeInto(kindS, el.getAttribute('data-slot'), found.id);
 			return;
 		}
 		if (el.getAttribute('data-f') && el.getAttribute('data-pid')) { saveCell(el); }

@@ -102,8 +102,33 @@ class LGT_Exporter {
 				$room_of[ $a['kind'] ][ $a['participant_id'] ] = $a['room_id'];
 			}
 		}
+		// Display label = type code + running number within the type (DBL-1, DBL-2, TRPL-1…),
+		// matching the column layout the school sees. Rooms are ordered by type capacity.
+		$cap_of = array();
+		foreach ( array_merge( $trip['room_types'], $trip['cabin_types'] ) as $t ) {
+			$cap_of[ $t['code'] ] = (int) $t['capacity'];
+		}
+		usort( $rooms, function ( $a, $b ) use ( $cap_of ) {
+			if ( $a['kind'] !== $b['kind'] ) {
+				return strcmp( $a['kind'], $b['kind'] );
+			}
+			$ca = $cap_of[ $a['type_code'] ] ?? $a['capacity'];
+			$cb = $cap_of[ $b['type_code'] ] ?? $b['capacity'];
+			if ( $ca !== $cb ) {
+				return $ca - $cb;
+			}
+			if ( $a['type_code'] !== $b['type_code'] ) {
+				return strcmp( $a['type_code'], $b['type_code'] );
+			}
+			return $a['sort_order'] - $b['sort_order'] ?: $a['id'] - $b['id'];
+		} );
+		$counters    = array();
 		$rooms_by_id = array();
-		foreach ( $rooms as $r ) {
+		foreach ( $rooms as $i => $r ) {
+			$k              = $r['kind'] . '|' . $r['type_code'];
+			$counters[ $k ] = ( $counters[ $k ] ?? 0 ) + 1;
+			$r['label']     = ( $r['type_code'] ? $r['type_code'] : 'X' . $r['capacity'] ) . '-' . $counters[ $k ];
+			$rooms[ $i ]    = $r;
 			$rooms_by_id[ $r['id'] ] = $r;
 		}
 		return compact( 'trip', 'participants', 'by_id', 'rooms', 'rooms_by_id', 'members', 'room_of' );
@@ -138,7 +163,7 @@ class LGT_Exporter {
 				continue;
 			}
 			$n++;
-			$label = $r['label'] ? $r['label'] : (string) $n;
+			$label = $r['label'];
 			$type  = self::type_label( $types, $r['type_code'], $r['capacity'] );
 			$summary[ $type ] = ( $summary[ $type ] ?? 0 ) + 1;
 			$mem = $d['members'][ $r['id'] ] ?? array();
@@ -197,7 +222,7 @@ class LGT_Exporter {
 		foreach ( self::sort_participants( $d['participants'] ) as $p ) {
 			$i++;
 			$room_id = $d['room_of']['cabin'][ $p['id'] ] ?? 0;
-			$cabin   = $room_id && isset( $d['rooms_by_id'][ $room_id ] ) ? $d['rooms_by_id'][ $room_id ]['label'] . ' (' . $d['rooms_by_id'][ $room_id ]['type_code'] . ')' : 'DECK';
+			$cabin   = $room_id && isset( $d['rooms_by_id'][ $room_id ] ) ? $d['rooms_by_id'][ $room_id ]['label'] : 'DECK';
 			$rows[]  = array(
 				$i,
 				$p['last_name_lat'],

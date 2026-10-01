@@ -190,7 +190,7 @@
 .lgt-textarea-mono { width: 100%; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12.5px; min-height: 160px; }
 
 /* Toast */
-.lgt-toasts { position: fixed; bottom: 20px; right: 20px; z-index: 100001; display: flex; flex-direction: column; gap: 8px; }
+.lgt-toasts { position: fixed; bottom: 20px; right: 20px; z-index: 100001; display: flex; flex-direction: column; gap: 8px; pointer-events: none; }
 .lgt-toast { background: #1f2937; color: #fff; padding: 10px 16px; border-radius: 8px; box-shadow: 0 6px 20px rgba(0,0,0,.25); font-size: 13.5px; animation: lgt-pop .15s ease-out; max-width: 360px; }
 .lgt-toast-ok { background: var(--lgt-ok); }
 .lgt-toast-err { background: var(--lgt-err); }
@@ -291,3 +291,20 @@
 .lgt-slot-empty { border-style: dashed; background: #fafbfc; }
 .lgt-app .lgt-slot-pick { width: 100%; border: none; background: transparent; min-height: 30px; font-size: 13px; color: var(--lgt-muted); padding: 4px; }
 .lgt-app .lgt-slot-pick:focus { outline: none; color: var(--lgt-text); }
+
+/* Paper rooming sheet v2: ready-made boxes, typed names */
+.lgt-col-head { margin-bottom: 10px; }
+.lgt-col-actions { display: flex; gap: 6px; justify-content: center; margin-top: 8px; }
+.lgt-col-actions .lgt-btn { border-radius: 999px; }
+.lgt-sheet .lgt-room-virtual { border-style: dashed; border-color: #cbd5e1; background: #fcfcfd; }
+.lgt-sheet .lgt-room-virtual .lgt-room-label { color: #94a3b8; }
+.lgt-sheet .lgt-room-virtual.lgt-drop-hover { border-style: solid; }
+.lgt-app .lgt-slot-input { width: 100%; border: none; background: transparent; min-height: 32px; font-size: 13.5px; padding: 4px 6px; border-radius: 4px; }
+.lgt-app .lgt-slot-input:focus { outline: 2px solid #bfdbfe; background: #fff; }
+.lgt-app .lgt-slot-input::placeholder { color: #cbd5e1; }
+.lgt-sheet .lgt-room-head { display: flex; align-items: center; gap: 6px; }
+.lgt-sheet .lgt-room-cap { margin-left: auto; }
+.lgt-pool { padding: 8px 12px; }
+.lgt-pool-title { margin-bottom: 4px; }
+/* While dragging, inputs must not swallow the drop */
+.lgt-app.lgt-drag-on .lgt-slot-input, .lgt-app.lgt-drag-on .lgt-chip-x { pointer-events: none; }
