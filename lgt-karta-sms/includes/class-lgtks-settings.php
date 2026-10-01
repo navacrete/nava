@@ -32,6 +32,11 @@ class LGTKS_Settings {
 			'manager_summary_subject'  => 'Κάρτα εργασίας {date}: {due} χωρίς χτύπημα',
 			'email_subject'            => 'Υπενθύμιση: δεν έχει καταγραφεί χτύπημα κάρτας',
 			'holidays'                 => '',
+			'holidays_auto'            => 1,
+			'holiday_clean_monday'     => 1,
+			'holiday_holy_spirit'      => 0,
+			'holiday_good_friday'      => 0,
+			'holiday_mode'             => 'skip',
 			'country_prefix'           => '30',
 			'timezone'                 => 'Europe/Athens',
 			// SMS provider.
@@ -181,8 +186,7 @@ class LGTKS_Settings {
 	}
 
 	public static function is_holiday( $day ) {
-		$h = self::parse_dates( self::get( 'holidays' ) );
-		return isset( $h[ $day ] );
+		return '' !== LGTKS_Holidays::name( $day );
 	}
 
 	/** "Header: value" lines -> array. */

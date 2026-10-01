@@ -20,6 +20,7 @@ class LGTKS_Checker {
 		$d     = new DateTime( $day, $tz );
 		$dow   = (int) $d->format( 'N' );
 		$hol   = LGTKS_Settings::is_holiday( $day );
+		$hmode = (string) LGTKS_Settings::get( 'holiday_mode', 'skip' );
 		$grace = (int) LGTKS_Settings::get( 'grace_minutes', 15 );
 		$maxd  = (int) LGTKS_Settings::get( 'max_delay_minutes', 180 );
 		$punch = LGTKS_DB::punches_for_day( $day );
@@ -54,7 +55,7 @@ class LGTKS_Checker {
 				// A punch recorded before this (later) shift belongs to an earlier shift: look for one after its start.
 				$row['first_at'] = LGTKS_DB::first_punch_after( $e['id'], $day, $day . ' ' . $shift['start'] . ':00' );
 			}
-			if ( $hol ) {
+			if ( $hol && ( 'evardia' !== $hmode || null === $ev || '' === $start ) ) {
 				$row['status'] = 'holiday';
 			} elseif ( '' === $start ) {
 				$row['status'] = 'off';

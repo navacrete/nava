@@ -152,6 +152,10 @@ class LGTKS_Admin {
 		if ( $wp_now !== LGTKS_Settings::now( 'H:i' ) ) {
 			echo '<div class="notice notice-warning"><p>Η ζώνη ώρας του WordPress (Ρυθμίσεις → Γενικά) δείχνει <strong>' . esc_html( $wp_now ) . '</strong> ενώ η ώρα Ελλάδας είναι <strong>' . esc_html( LGTKS_Settings::now( 'H:i' ) ) . '</strong>. Το plugin χρησιμοποιεί την ώρα Ελλάδας, οπότε οι ειδοποιήσεις είναι σωστές· καλό είναι όμως να ορίσετε στο WordPress ζώνη ώρας «Αθήνα» (όχι UTC+2) για να συμφωνούν και οι υπόλοιπες ώρες του site.</p></div>';
 		}
+		$hname = LGTKS_Holidays::name( LGTKS_Settings::now( 'Y-m-d' ) );
+		if ( '' !== $hname ) {
+			echo '<div class="notice notice-info"><p><strong>Σήμερα είναι αργία: ' . esc_html( $hname ) . '.</strong> ' . ( 'evardia' === LGTKS_Settings::get( 'holiday_mode' ) ? 'Ελέγχονται μόνο όσοι έχουν βάρδια στο eVardia.' : 'Δεν στέλνεται καμία ειδοποίηση.' ) . '</p></div>';
+		}
 		if ( ! $enabled ) {
 			echo '<div class="notice notice-warning"><p><strong>Οι αυτόματες ειδοποιήσεις είναι απενεργοποιημένες.</strong> Ενεργοποιήστε τις στις <a href="' . esc_url( self::url( 'settings' ) ) . '">Ρυθμίσεις</a> όταν ολοκληρώσετε τη διαμόρφωση. Οι χειροκίνητες ενέργειες εδώ λειτουργούν κανονικά.</p></div>';
 		}
@@ -513,7 +517,21 @@ class LGTKS_Admin {
 		self::area( 'manager_email', 'Email υπευθύνων', 'Ένα ανά γραμμή ή με κόμμα. Χρησιμοποιούνται για τις αυτόματες ειδοποιήσεις (αν το κανάλι περιλαμβάνει email) και για το κουμπί «Email στους υπευθύνους».', 2 );
 		self::area( 'manager_message_template', 'Μήνυμα στον υπεύθυνο (ανά εργαζόμενο)', 'Χρησιμοποιείται μόνο αν είναι ενεργή η «Ξεχωριστή ειδοποίηση ανά εργαζόμενο» ή με το κουμπί «Ειδοποίηση τώρα».', 2 );
 		self::text( 'manager_summary_subject', 'Θέμα email συνολικής κατάστασης', 'Μεταβλητές: {date} {now} {due} {company}.' );
-		self::area( 'holidays', 'Αργίες (όλη η εταιρεία)', 'Ημερομηνίες ΕΕΕΕ-ΜΜ-ΗΗ, π.χ. <code>2026-10-28, 2026-12-25, 2026-12-26, 2027-01-01</code>. Διάστημα: <code>2026-08-10..2026-08-16</code>.', 2 );
+		echo '</tbody></table></div>';
+		echo '<div class="lgtks-section"><h2>Αργίες</h2><table class="form-table"><tbody>';
+		self::check( 'holidays_auto', 'Επίσημες αργίες ιδιωτικού τομέα', 'Αυτόματα κάθε χρόνο: Πρωτοχρονιά, Θεοφάνεια, 25η Μαρτίου, Κυριακή &amp; Δευτέρα του Πάσχα (ορθόδοξο), Πρωτομαγιά, 15 Αυγούστου, 28η Οκτωβρίου, 25 &amp; 26 Δεκεμβρίου (ν. 4468/2017 άρθρο 14, όπως ισχύει).' );
+		self::check( 'holiday_clean_monday', 'Καθαρά Δευτέρα', 'Δεν είναι υποχρεωτική αργία για τον ιδιωτικό τομέα, αλλά τηρείται κατ’ έθιμο από τις περισσότερες επιχειρήσεις.' );
+		self::check( 'holiday_holy_spirit', 'Αγίου Πνεύματος', 'Αργία μόνο για το Δημόσιο και ορισμένους κλάδους· ενεργοποιήστε αν η επιχείρηση κλείνει.' );
+		self::check( 'holiday_good_friday', 'Μεγάλη Παρασκευή', 'Δεν είναι αργία για τον ιδιωτικό τομέα (μειωμένο ωράριο στο εμπόριο)· ενεργοποιήστε αν η επιχείρηση κλείνει.' );
+		self::select( 'holiday_mode', 'Τι γίνεται σε αργία', array( 'skip' => 'Καμία ειδοποίηση σε κανέναν (προεπιλογή)', 'evardia' => 'Έλεγχος μόνο όσων έχουν βάρδια στο eVardia εκείνη τη μέρα' ), 'Η δεύτερη επιλογή έχει νόημα αν κάποιοι εργάζονται και τις αργίες και το ωράριό τους είναι περασμένο στο eVardia.' );
+		self::area( 'holidays', 'Επιπλέον αργίες (τοπικές / δικές σας)', 'Π.χ. τοπικός πολιούχος ή ημέρες που κλείνει η επιχείρηση. Ημερομηνίες ΕΕΕΕ-ΜΜ-ΗΗ ή ΗΗ/ΜΜ/ΕΕΕΕ, διάστημα με «..», π.χ. <code>2026-11-11, 2026-12-24..2026-12-31</code>.', 2 );
+		$y    = (int) LGTKS_Settings::now( 'Y' );
+		$list = array();
+		foreach ( array( $y, $y + 1 ) as $yy ) {
+			$hh = LGTKS_Holidays::auto_for_year( $yy );
+			$list[] = '<strong>' . $yy . ':</strong> ' . ( $hh ? esc_html( implode( ' · ', array_map( function ( $d, $n ) { return date( 'd/m', strtotime( $d ) ) . ' ' . $n; }, array_keys( $hh ), $hh ) ) ) : '—' );
+		}
+		echo '<tr><th>Αυτόματο ημερολόγιο</th><td><p class="description">' . implode( '</p><p class="description">', $list ) . '</p></td></tr>';
 		self::text( 'timezone', 'Ζώνη ώρας', 'Το plugin δουλεύει πάντα σε αυτή τη ζώνη (προεπιλογή <code>Europe/Athens</code>, με αυτόματη θερινή/χειμερινή ώρα), ανεξάρτητα από τη ρύθμιση του WordPress. Τρέχουσα ώρα plugin: <strong>' . esc_html( LGTKS_Settings::now( 'd/m/Y H:i' ) ) . '</strong>.' );
 		self::text( 'country_prefix', 'Κωδικός χώρας', 'Προστίθεται σε κινητά 10 ψηφίων (69…). Ελλάδα = 30.', 'text', 'style="width:90px"' );
 		echo '</tbody></table></div>';
@@ -656,7 +674,7 @@ class LGTKS_Admin {
 			if ( in_array( $k, array( 'webhook_token', 'cron_token' ), true ) ) {
 				continue;
 			}
-			if ( is_int( $d ) && in_array( $k, array( 'enabled', 'delete_on_uninstall', 'ev_use_schedule', 'ev_auto_create', 'manager_per_employee', 'manager_digest_all_ok' ), true ) ) {
+			if ( is_int( $d ) && in_array( $k, array( 'enabled', 'delete_on_uninstall', 'ev_use_schedule', 'ev_auto_create', 'manager_per_employee', 'manager_digest_all_ok', 'holidays_auto', 'holiday_clean_monday', 'holiday_holy_spirit', 'holiday_good_friday' ), true ) ) {
 				$out[ $k ] = empty( $in[ $k ] ) ? 0 : 1;
 			} elseif ( is_int( $d ) ) {
 				$out[ $k ] = isset( $in[ $k ] ) ? max( 0, (int) $in[ $k ] ) : $d;
