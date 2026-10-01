@@ -40,11 +40,19 @@ timestamp· αλλιώς δηλώνετε μορφή PHP (π.χ. `d/m/Y H:i:s`).
 
 ## Αποστολή SMS
 
-Ρυθμίσεις → Αποστολή SMS. Έτοιμες επιλογές: **Yuboto**, **Routee**, **Twilio**, και **«Γενικό HTTP
-API»** για οποιονδήποτε άλλον πάροχο (EasySMS, SMS.to, Apifon, Vonage…): URL, headers, body με
-μεταβλητές `{to}` `{message}` `{sender}`. Υπάρχει «Δοκιμαστικό SMS» που δείχνει την απάντηση του
-παρόχου. Το Sender ID (π.χ. `LeGrand`) πρέπει να έχει εγκριθεί στον πάροχο. Τα ελληνικά στέλνονται
-ως Unicode (70 χαρακτήρες ανά τμήμα).
+Ρυθμίσεις → Αποστολή SMS. Προεπιλογή **Yuboto** (OMNI API v1.3, `POST
+https://services.yuboto.com/omni/v1/Send`, Basic auth με το API key, body
+`{"phonenumbers":["3069…"],"sms":{"sender","text","typesms","longsms","validity"}}`). Χρειάζεται μόνο
+το **OMNI API key** από την πλατφόρμα Yuboto (My Account → API Integration) ή από
+support@yuboto.com. Το plugin επιλέγει αυτόματα `typesms: unicode` όταν το μήνυμα έχει ελληνικά
+(70 χαρακτήρες/τμήμα) και ενεργοποιεί `longsms` για μεγαλύτερα μηνύματα. Κουμπί «Υπόλοιπο
+λογαριασμού» ελέγχει το key χωρίς αποστολή. Η απάντηση (ErrorCode, status ανά αριθμό, message id)
+καταγράφεται στο Ιστορικό.
+
+Εναλλακτικά: **Routee**, **Twilio**, ή **«Γενικό HTTP API»** για οποιονδήποτε άλλον πάροχο
+(EasySMS, SMS.to, Apifon, Vonage…): URL, headers, body με μεταβλητές `{to}` `{message}` `{sender}`.
+Υπάρχει «Δοκιμαστικό SMS» που δείχνει την απάντηση του παρόχου. Το Sender ID (π.χ. `LeGrand`)
+πρέπει να έχει εγκριθεί στον πάροχο.
 
 ## Εγκατάσταση
 

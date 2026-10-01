@@ -13,7 +13,7 @@ class LGTKS_Admin {
 	public static function init() {
 		add_action( 'admin_menu', array( __CLASS__, 'menu' ) );
 		add_action( 'admin_enqueue_scripts', array( __CLASS__, 'assets' ) );
-		foreach ( array( 'run', 'sync', 'save_settings', 'test_sms', 'test_source', 'save_employee', 'delete_employee', 'bulk_employees', 'manual_punch', 'undo_punch', 'send_now', 'regen_tokens' ) as $a ) {
+		foreach ( array( 'run', 'sync', 'save_settings', 'test_sms', 'test_source', 'save_employee', 'delete_employee', 'bulk_employees', 'manual_punch', 'undo_punch', 'send_now', 'regen_tokens', 'yuboto_balance' ) as $a ) {
 			add_action( 'admin_post_lgtks_' . $a, array( __CLASS__, 'handle_' . $a ) );
 		}
 		add_action( 'admin_notices', array( __CLASS__, 'notices' ) );
@@ -399,7 +399,7 @@ class LGTKS_Admin {
 		self::text( 'sms_sender', 'Αποστολέας (Sender ID)', 'Έως 11 λατινικοί χαρακτήρες, π.χ. LeGrand. Πρέπει να είναι εγκεκριμένος στον πάροχο.' );
 		echo '</tbody></table>';
 		echo '<div class="lgtks-provider" data-p="yuboto"><table class="form-table"><tbody>';
-		self::text( 'yuboto_api_key', 'Yuboto API key', 'Από το yuboto.com → Settings → API. Χρησιμοποιείται το Omni API (<code>services.yuboto.com/omni/v1/Send</code>). Αν ο λογαριασμός σας έχει διαφορετικό API, επιλέξτε «Γενικό HTTP API».', 'password' );
+		self::text( 'yuboto_api_key', 'Yuboto OMNI API key', 'Από την πλατφόρμα Yuboto (Yuniverse/OctaPush) → My Account → API Integration, ή ζητήστε το από support@yuboto.com. Το plugin καλεί το OMNI API v1.3 (<code>services.yuboto.com/omni/v1/Send</code>) με Basic auth. Τα ελληνικά στέλνονται αυτόματα ως Unicode (70 χαρακτήρες/τμήμα, longsms ενεργό).', 'password' );
 		echo '</tbody></table></div>';
 		echo '<div class="lgtks-provider" data-p="routee"><table class="form-table"><tbody>';
 		self::text( 'routee_app_id', 'Routee application id' );
@@ -467,6 +467,11 @@ class LGTKS_Admin {
 		echo '<div class="lgtks-card"><h3>Δοκιμή πηγής</h3>';
 		self::form_open( 'test_source' );
 		echo '<button class="button">Λήψη σημερινών χτυπημάτων</button><p class="description">Δείχνει τι επιστρέφει το API/CSV και ποιοι αντιστοιχίστηκαν, χωρίς να στείλει SMS.</p></form></div>';
+		if ( 'yuboto' === LGTKS_Settings::get( 'sms_provider' ) ) {
+			echo '<div class="lgtks-card"><h3>Yuboto</h3>';
+			self::button_form( 'yuboto_balance', 'Υπόλοιπο λογαριασμού', 'button' );
+			echo '<p class="description">Ελέγχει ότι το API key δουλεύει, χωρίς να στείλει SMS.</p></div>';
+		}
 		echo '<div class="lgtks-card"><h3>Tokens</h3>';
 		self::button_form( 'regen_tokens', 'Νέα tokens webhook/cron', 'button', array(), 'Τα παλιά URL θα πάψουν να ισχύουν. Συνέχεια;' );
 		echo '</div></div>';
@@ -529,6 +534,19 @@ class LGTKS_Admin {
 		}
 		set_transient( 'lgtks_test_' . get_current_user_id(), array( 'title' => 'Δοκιμή πηγής', 'body' => implode( "\n", $lines ) ), 120 );
 		self::back( 'settings', 'Η λήψη πέτυχε (δεν αποθηκεύτηκε τίποτα).' );
+	}
+
+	public static function handle_yuboto_balance() {
+		self::guard( 'yuboto_balance' );
+		$r = LGTKS_SMS::yuboto_balance();
+		if ( is_wp_error( $r ) ) {
+			set_transient( 'lgtks_test_' . get_current_user_id(), array( 'title' => 'Yuboto – σφάλμα', 'body' => $r->get_error_message() ), 120 );
+			self::back( 'settings', 'Το Yuboto API key δεν έγινε δεκτό – δείτε την απάντηση παρακάτω.', 'error' );
+		}
+		$j = json_decode( $r, true );
+		$t = is_array( $j ) && isset( $j['balance'] ) ? sprintf( 'Υπόλοιπο: %s %s', $j['balance'], $j['type'] ?? '' ) : $r;
+		set_transient( 'lgtks_test_' . get_current_user_id(), array( 'title' => 'Yuboto – υπόλοιπο', 'body' => $r ), 120 );
+		self::back( 'settings', 'Σύνδεση με Yuboto OK. ' . $t );
 	}
 
 	public static function handle_regen_tokens() {

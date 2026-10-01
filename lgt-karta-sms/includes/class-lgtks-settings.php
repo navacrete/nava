@@ -26,7 +26,7 @@ class LGTKS_Settings {
 			'holidays'                 => '',
 			'country_prefix'           => '30',
 			// SMS provider.
-			'sms_provider'             => 'generic',
+			'sms_provider'             => 'yuboto',
 			'sms_sender'               => 'LeGrand',
 			'yuboto_api_key'           => '',
 			'routee_app_id'            => '',

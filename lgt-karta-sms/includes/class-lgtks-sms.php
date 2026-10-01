@@ -71,19 +71,33 @@ class LGTKS_SMS {
 		);
 	}
 
+	/** True if the text fits the GSM 03.38 7-bit alphabet (otherwise it must go as Unicode). */
+	public static function is_gsm7( $text ) {
+		return (bool) preg_match( '/^[A-Za-z0-9 @£$¥èéùìòÇØøÅåΔ_ΦΓΛΩΠΨΣΘΞÆæßÉ!"#¤%&\'()*+,\-.\/:;<=>?¡ÄÖÑÜ§¿äöñüà\^{}\\\[~\]|€\r\n]*$/u', $text );
+	}
+
+	/**
+	 * Yuboto OMNI API v1.3: POST https://services.yuboto.com/omni/v1/Send
+	 * Authorization: Basic base64(apiKey); body {phonenumbers:[…], sms:{sender,text,validity,typesms,longsms}}
+	 * Response {ErrorCode:0, ErrorMessage:null, Message:[{id,channel,phonenumber,status}]}
+	 */
 	private static function send_yuboto( $to, $message ) {
 		$key = trim( (string) LGTKS_Settings::get( 'yuboto_api_key' ) );
 		if ( '' === $key ) {
 			return array( 'ok' => false, 'response' => 'Λείπει το Yuboto API key' );
 		}
-		$body = array(
-			'sms'      => array(
+		$unicode = ! self::is_gsm7( $message );
+		$body    = array(
+			'phonenumbers' => array( $to ),
+			'dlr'          => false,
+			'sms'          => array(
 				'sender'   => (string) LGTKS_Settings::get( 'sms_sender', 'LeGrand' ),
 				'text'     => $message,
 				'validity' => 180,
-				'typesms'  => 'sms',
+				'typesms'  => $unicode ? 'unicode' : 'sms',
+				'longsms'  => mb_strlen( $message, 'UTF-8' ) > ( $unicode ? 70 : 160 ),
+				'priority' => 0,
 			),
-			'contacts' => array( array( 'phonenumber' => $to ) ),
 		);
 		$resp = wp_remote_post(
 			'https://services.yuboto.com/omni/v1/Send',
@@ -91,18 +105,67 @@ class LGTKS_SMS {
 				'timeout' => 20,
 				'headers' => array(
 					'Authorization' => 'Basic ' . base64_encode( $key ),
-					'Content-Type'  => 'application/json',
+					'Content-Type'  => 'application/json; charset=utf-8',
 					'Accept'        => 'application/json',
 				),
-				'body'    => wp_json_encode( $body ),
+				'body'    => wp_json_encode( $body, JSON_UNESCAPED_UNICODE ),
 			)
 		);
-		$res  = self::result( $resp );
-		// Yuboto returns 200 even on logical errors; look for an error code in the body.
-		if ( $res['ok'] && preg_match( '/"ErrorCode"\s*:\s*(\d+)/i', $res['response'], $m ) && (int) $m[1] !== 0 ) {
-			$res['ok'] = false;
+		$res = self::result( $resp );
+		if ( is_wp_error( $resp ) ) {
+			return $res;
 		}
+		$json = json_decode( (string) wp_remote_retrieve_body( $resp ), true );
+		if ( ! is_array( $json ) || ! array_key_exists( 'ErrorCode', $json ) ) {
+			$res['ok'] = false;
+			return $res;
+		}
+		if ( (int) $json['ErrorCode'] !== 0 ) {
+			$res['ok']       = false;
+			$res['response'] = 'Yuboto σφάλμα ' . (int) $json['ErrorCode'] . ': ' . ( $json['ErrorMessage'] ?? '' );
+			return $res;
+		}
+		$statuses = array();
+		foreach ( (array) ( $json['Message'] ?? array() ) as $m ) {
+			$statuses[] = ( $m['phonenumber'] ?? '' ) . '=' . ( $m['status'] ?? '' ) . ( ! empty( $m['id'] ) ? ' (id ' . $m['id'] . ')' : '' );
+			if ( in_array( strtolower( (string) ( $m['status'] ?? '' ) ), array( 'error', 'rejected', 'failed', 'not delivered' ), true ) ) {
+				$res['ok'] = false;
+			}
+		}
+		$res['response'] = 'Yuboto OK: ' . implode( ', ', $statuses ) . ( $unicode ? ' [unicode]' : '' );
 		return $res;
+	}
+
+	/** Yuboto account balance (for the settings page). Returns string or WP_Error. */
+	public static function yuboto_balance() {
+		$key = trim( (string) LGTKS_Settings::get( 'yuboto_api_key' ) );
+		if ( '' === $key ) {
+			return new WP_Error( 'lgtks', 'Λείπει το Yuboto API key' );
+		}
+		$resp = wp_remote_post(
+			'https://services.yuboto.com/omni/v1/Balance',
+			array(
+				'timeout' => 15,
+				'headers' => array(
+					'Authorization' => 'Basic ' . base64_encode( $key ),
+					'Content-Type'  => 'application/json; charset=utf-8',
+					'Accept'        => 'application/json',
+				),
+				'body'    => '{}',
+			)
+		);
+		if ( is_wp_error( $resp ) ) {
+			return $resp;
+		}
+		$json = json_decode( (string) wp_remote_retrieve_body( $resp ), true );
+		if ( ! is_array( $json ) ) {
+			return new WP_Error( 'lgtks', 'HTTP ' . wp_remote_retrieve_response_code( $resp ) . ': ' . substr( (string) wp_remote_retrieve_body( $resp ), 0, 200 ) );
+		}
+		if ( ! empty( $json['ErrorCode'] ) ) {
+			return new WP_Error( 'lgtks', 'Yuboto σφάλμα ' . $json['ErrorCode'] . ': ' . ( $json['ErrorMessage'] ?? '' ) );
+		}
+		unset( $json['ErrorCode'], $json['ErrorMessage'] );
+		return wp_json_encode( $json, JSON_UNESCAPED_UNICODE );
 	}
 
 	private static function routee_token() {
