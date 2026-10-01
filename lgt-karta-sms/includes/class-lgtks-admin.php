@@ -157,7 +157,7 @@ class LGTKS_Admin {
 			echo '<div class="notice notice-info"><p><strong>Σήμερα είναι αργία: ' . esc_html( $hname ) . '.</strong> ' . ( 'evardia' === LGTKS_Settings::get( 'holiday_mode' ) ? 'Ελέγχονται μόνο όσοι έχουν βάρδια στο eVardia.' : 'Δεν στέλνεται καμία ειδοποίηση.' ) . '</p></div>';
 		}
 		if ( ! $enabled ) {
-			echo '<div class="notice notice-warning"><p><strong>Οι αυτόματες ειδοποιήσεις είναι απενεργοποιημένες.</strong> Ενεργοποιήστε τις στις <a href="' . esc_url( self::url( 'settings' ) ) . '">Ρυθμίσεις</a> όταν ολοκληρώσετε τη διαμόρφωση. Οι χειροκίνητες ενέργειες εδώ λειτουργούν κανονικά.</p></div>';
+			echo '<div class="notice notice-warning"><p><strong>Οι αυτόματες ειδοποιήσεις είναι απενεργοποιημένες.</strong> Ο έλεγχος και ο συγχρονισμός με το eVardia τρέχουν κανονικά κάθε 5 λεπτά (δοκιμαστική λειτουργία), αλλά δεν στέλνεται κανένα SMS/email σε εργαζόμενους ή υπευθύνους. Ενεργοποιήστε τις στις <a href="' . esc_url( self::url( 'settings' ) ) . '">Ρυθμίσεις</a> όταν είστε έτοιμοι. Οι χειροκίνητες ενέργειες εδώ λειτουργούν κανονικά.</p></div>';
 		}
 		echo '<div class="lgtks-cards">';
 		echo '<div class="lgtks-card"><h3>Χτύπησαν</h3><div class="big">' . (int) $counts['present'] . '</div></div>';

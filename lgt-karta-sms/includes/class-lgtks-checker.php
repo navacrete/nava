@@ -8,6 +8,9 @@ if ( ! defined( 'ABSPATH' ) ) {
 
 class LGTKS_Checker {
 
+	/** True while running without the right to send anything (switch off). */
+	public static $dry = false;
+
 	/**
 	 * Per-employee status for a day (used by the dashboard and by run()).
 	 *
@@ -91,15 +94,16 @@ class LGTKS_Checker {
 	 *
 	 * @param bool $sync Pull punches from the source first (api_json/csv_url).
 	 */
-	public static function run( $sync = true ) {
+	public static function run( $sync = true, $notify = true ) {
 		$lock = get_transient( 'lgtks_running' );
 		if ( $lock ) {
 			return array( 'skipped' => 'running' );
 		}
+		self::$dry = ! $notify;
 		set_transient( 'lgtks_running', 1, 2 * MINUTE_IN_SECONDS );
 
 		$day     = LGTKS_Settings::now( 'Y-m-d' );
-		$summary = array( 'day' => $day, 'due' => 0, 'sent' => 0, 'failed' => 0, 'sync' => null );
+		$summary = array( 'day' => $day, 'due' => 0, 'sent' => 0, 'failed' => 0, 'sync' => null, 'dry' => self::$dry );
 		LGTKS_Health::record_run();
 		try {
 			$rows   = self::status_for_day( $day );
@@ -183,6 +187,7 @@ class LGTKS_Checker {
 			$summary['digest'] = self::run_digest( $rows );
 		} finally {
 			delete_transient( 'lgtks_running' );
+			self::$dry = false;
 		}
 		update_option( 'lgt_ks_last_run', array( 'at' => LGTKS_Settings::now( 'Y-m-d H:i:s' ), 'summary' => $summary ) );
 		if ( $summary['due'] || $summary['sync'] ) {
@@ -196,6 +201,9 @@ class LGTKS_Checker {
 	 * Returns true if at least one employee notification was sent.
 	 */
 	public static function notify( array $row, $round = 1, $force = false ) {
+		if ( self::$dry && ! $force ) {
+			return false;
+		}
 		$e       = $row['employee'];
 		$day     = LGTKS_Settings::now( 'Y-m-d' );
 		$vars    = self::vars( $row );
@@ -256,6 +264,9 @@ class LGTKS_Checker {
 
 	/** Batch mode: send the queued punches as one email once the oldest is older than N minutes. */
 	public static function flush_punch_queue( $force = false ) {
+		if ( self::$dry ) {
+			return 0;
+		}
 		$q = get_option( 'lgt_ks_punch_queue', array() );
 		if ( ! is_array( $q ) || ! $q ) {
 			return 0;
@@ -289,7 +300,7 @@ class LGTKS_Checker {
 	 * and email the managers once per employee per day.
 	 */
 	public static function check_double_clockins( $day ) {
-		if ( ! LGTKS_Settings::get( 'anomaly_email', 1 ) ) {
+		if ( self::$dry || ! LGTKS_Settings::get( 'anomaly_email', 1 ) ) {
 			return 0;
 		}
 		$to = LGTKS_Settings::clockin_emails();
@@ -344,7 +355,7 @@ class LGTKS_Checker {
 	 * One email per punch; above 5 punches in one batch a single combined email is sent instead.
 	 */
 	public static function email_new_punches( array $punches ) {
-		if ( ! LGTKS_Settings::get( 'clockin_email' ) || ! $punches ) {
+		if ( self::$dry || ! LGTKS_Settings::get( 'clockin_email' ) || ! $punches ) {
 			return 0;
 		}
 		$kinds = (string) LGTKS_Settings::get( 'clockin_email_kinds', 'in' );
@@ -467,6 +478,9 @@ class LGTKS_Checker {
 
 	/** Immediate manager alert for a long delay (round 3, once per day per employee). */
 	public static function escalate( array $row ) {
+		if ( self::$dry ) {
+			return;
+		}
 		$e    = $row['employee'];
 		$day  = LGTKS_Settings::now( 'Y-m-d' );
 		$vars = self::vars( $row );
@@ -501,6 +515,9 @@ class LGTKS_Checker {
 	 * clocked in yet. Sent once per time per day, only if someone is pending (unless 'all ok' is on).
 	 */
 	public static function run_digest( array $rows ) {
+		if ( self::$dry ) {
+			return null;
+		}
 		$times = LGTKS_Settings::digest_times();
 		if ( ! $times || 'none' === LGTKS_Settings::manager_channel() ) {
 			return null;

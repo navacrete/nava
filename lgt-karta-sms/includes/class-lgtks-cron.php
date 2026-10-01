@@ -37,11 +37,11 @@ class LGTKS_Cron {
 		wp_clear_scheduled_hook( self::HOOK );
 	}
 
-	/** Cron entry point: respects the global on/off switch. */
+	/**
+	 * Cron entry point. With the global switch off the check still runs (sync + dashboard + health)
+	 * but sends no notifications at all ("dry run").
+	 */
 	public static function run() {
-		if ( ! LGTKS_Settings::get( 'enabled' ) ) {
-			return;
-		}
-		LGTKS_Checker::run( true );
+		LGTKS_Checker::run( true, (bool) LGTKS_Settings::get( 'enabled' ) );
 	}
 }

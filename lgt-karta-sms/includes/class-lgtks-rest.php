@@ -112,10 +112,7 @@ class LGTKS_REST {
 	}
 
 	public static function run( WP_REST_Request $req ) {
-		if ( ! LGTKS_Settings::get( 'enabled' ) ) {
-			return new WP_REST_Response( array( 'ok' => false, 'error' => 'disabled' ), 200 );
-		}
-		$summary = LGTKS_Checker::run( true );
+		$summary = LGTKS_Checker::run( true, (bool) LGTKS_Settings::get( 'enabled' ) );
 		return new WP_REST_Response( array( 'ok' => true, 'summary' => $summary ), 200 );
 	}
 }
