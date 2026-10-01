@@ -119,7 +119,7 @@ class LGTKS_Guard {
 		}
 		$p       = wp_parse_url( $url );
 		$trail[] = array(
-			'at'     => current_time( 'mysql' ),
+			'at'     => LGTKS_Settings::now( 'Y-m-d H:i:s' ),
 			'method' => $method,
 			'path'   => ( $p['path'] ?? '/' ) . ( isset( $p['query'] ) ? '?' . $p['query'] : '' ),
 			'host'   => $p['host'] ?? '',

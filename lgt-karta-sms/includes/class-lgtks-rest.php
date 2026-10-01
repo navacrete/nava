@@ -93,7 +93,7 @@ class LGTKS_REST {
 		);
 		foreach ( $recs as &$r ) {
 			if ( '' === $r['datetime'] ) {
-				$r['datetime'] = current_time( 'mysql' );
+				$r['datetime'] = LGTKS_Settings::now( 'Y-m-d H:i:s' );
 			}
 		}
 		unset( $r );

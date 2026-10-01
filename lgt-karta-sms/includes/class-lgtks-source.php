@@ -26,7 +26,7 @@ class LGTKS_Source {
 	 * @return array|WP_Error {records:int, matched:int, new:int, unmatched:array}
 	 */
 	public static function sync( $day = null ) {
-		$day  = $day ? $day : current_time( 'Y-m-d' );
+		$day  = $day ? $day : LGTKS_Settings::now( 'Y-m-d' );
 		$type = LGTKS_Settings::get( 'source_type' );
 		if ( ! self::is_pull( $type ) ) {
 			return array( 'records' => 0, 'matched' => 0, 'new' => 0, 'unmatched' => array(), 'skipped' => true );
@@ -35,21 +35,21 @@ class LGTKS_Source {
 			$res = LGTKS_Evardia::sync();
 			if ( is_wp_error( $res ) ) {
 				LGTKS_DB::log( 'error', 'Συγχρονισμός eVardia απέτυχε: ' . $res->get_error_message() );
-				update_option( 'lgt_ks_last_sync', array( 'at' => current_time( 'mysql' ), 'ok' => false, 'msg' => $res->get_error_message() ) );
+				update_option( 'lgt_ks_last_sync', array( 'at' => LGTKS_Settings::now( 'Y-m-d H:i:s' ), 'ok' => false, 'msg' => $res->get_error_message() ) );
 			}
 			return $res;
 		}
 		$records = self::fetch( $type, $day );
 		if ( is_wp_error( $records ) ) {
 			LGTKS_DB::log( 'error', 'Συγχρονισμός πηγής απέτυχε: ' . $records->get_error_message() );
-			update_option( 'lgt_ks_last_sync', array( 'at' => current_time( 'mysql' ), 'ok' => false, 'msg' => $records->get_error_message() ) );
+			update_option( 'lgt_ks_last_sync', array( 'at' => LGTKS_Settings::now( 'Y-m-d H:i:s' ), 'ok' => false, 'msg' => $records->get_error_message() ) );
 			return $records;
 		}
 		$res = self::ingest( $records, $type );
 		update_option(
 			'lgt_ks_last_sync',
 			array(
-				'at'  => current_time( 'mysql' ),
+				'at'  => LGTKS_Settings::now( 'Y-m-d H:i:s' ),
 				'ok'  => true,
 				'msg' => sprintf( '%d εγγραφές, %d αντιστοιχίστηκαν, %d νέες', $res['records'], $res['matched'], $res['new'] ),
 			)
@@ -112,7 +112,7 @@ class LGTKS_Source {
 	/* ---------- fetchers ---------- */
 
 	private static function placeholders( $day ) {
-		$tz = wp_timezone();
+		$tz = LGTKS_Settings::tz();
 		$d  = new DateTime( $day, $tz );
 		return array(
 			'{date}'      => $d->format( 'Y-m-d' ),
@@ -281,7 +281,7 @@ class LGTKS_Source {
 		if ( '' === $raw ) {
 			return null;
 		}
-		$tz  = wp_timezone();
+		$tz  = LGTKS_Settings::tz();
 		$fmt = trim( (string) LGTKS_Settings::get( 'source_date_format' ) );
 		$dt  = false;
 		if ( '' !== $fmt ) {

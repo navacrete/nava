@@ -360,7 +360,7 @@ class LGTKS_WebLogin {
 	/* ---------- helpers ---------- */
 
 	private static function placeholders( $day ) {
-		$d = new DateTime( $day, wp_timezone() );
+		$d = new DateTime( $day, LGTKS_Settings::tz() );
 		return array(
 			'{date}'      => $d->format( 'Y-m-d' ),
 			'{date_dmy}'  => $d->format( 'd/m/Y' ),

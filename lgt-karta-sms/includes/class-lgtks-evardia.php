@@ -46,7 +46,7 @@ class LGTKS_Evardia {
 				return $cached;
 			}
 		}
-		$html = LGTKS_WebLogin::get_data( current_time( 'Y-m-d' ), true, self::cfg() );
+		$html = LGTKS_WebLogin::get_data( LGTKS_Settings::now( 'Y-m-d' ), true, self::cfg() );
 		if ( is_wp_error( $html ) ) {
 			return $html;
 		}
@@ -117,7 +117,7 @@ class LGTKS_Evardia {
 	public static function get_roster_page() {
 		$cfg             = self::cfg();
 		$cfg['data_url'] = preg_replace( '#/Ergazomenos/EpilektikhApostolh.*$#', '/Ergazomenos', $cfg['data_url'] );
-		return LGTKS_WebLogin::get_data( current_time( 'Y-m-d' ), true, $cfg );
+		return LGTKS_WebLogin::get_data( LGTKS_Settings::now( 'Y-m-d' ), true, $cfg );
 	}
 
 	/**
@@ -232,7 +232,7 @@ class LGTKS_Evardia {
 		if ( is_wp_error( $r ) ) {
 			return $r;
 		}
-		$r['fetched_at'] = current_time( 'mysql' );
+		$r['fetched_at'] = LGTKS_Settings::now( 'Y-m-d H:i:s' );
 		update_option( self::ROSTER_OPTION, $r, false );
 		set_transient( self::ROSTER_TRANSIENT, 1, HOUR_IN_SECONDS );
 		return $r;
@@ -320,7 +320,7 @@ class LGTKS_Evardia {
 			return $rows;
 		}
 		$rows  = self::normalize( $rows );
-		$today = current_time( 'Y-m-d' );
+		$today = LGTKS_Settings::now( 'Y-m-d' );
 		$idx   = LGTKS_Source::employee_index();
 		$auto  = (bool) LGTKS_Settings::get( 'ev_auto_create', 1 );
 		$sum   = array( 'records' => count( $rows ), 'matched' => 0, 'created' => 0, 'new' => 0, 'inactive_skipped' => 0, 'deactivated' => 0, 'unmatched' => array() );
@@ -400,11 +400,11 @@ class LGTKS_Evardia {
 				}
 			}
 		}
-		update_option( self::DAY_OPTION, array( 'day' => $today, 'fetched_at' => current_time( 'mysql' ), 'rows' => $day ), false );
+		update_option( self::DAY_OPTION, array( 'day' => $today, 'fetched_at' => LGTKS_Settings::now( 'Y-m-d H:i:s' ), 'rows' => $day ), false );
 		update_option(
 			'lgt_ks_last_sync',
 			array(
-				'at'  => current_time( 'mysql' ),
+				'at'  => LGTKS_Settings::now( 'Y-m-d H:i:s' ),
 				'ok'  => true,
 				'msg' => sprintf( 'eVardia: %d εργαζόμενοι σήμερα, %d νέοι, %d νέα χτυπήματα, %d ανενεργοί αγνοήθηκαν', $sum['records'], $sum['created'], $sum['new'], $sum['inactive_skipped'] ),
 			)

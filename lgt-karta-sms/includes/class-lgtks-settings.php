@@ -28,6 +28,7 @@ class LGTKS_Settings {
 			'email_subject'            => 'Υπενθύμιση: δεν έχει καταγραφεί χτύπημα κάρτας',
 			'holidays'                 => '',
 			'country_prefix'           => '30',
+			'timezone'                 => 'Europe/Athens',
 			// SMS provider.
 			'sms_provider'             => 'yuboto',
 			'sms_sender'               => 'LeGrand',
@@ -114,6 +115,38 @@ class LGTKS_Settings {
 		$all = array_merge( self::all(), $values );
 		update_option( self::OPTION, $all );
 		self::$cache = null;
+	}
+
+	/* ---------- time: the plugin always works in Greek time, independent of the WP setting ---------- */
+
+	public static function tz() {
+		static $tz = null;
+		if ( null === $tz ) {
+			$name = (string) self::get( 'timezone', 'Europe/Athens' );
+			try {
+				$tz = new DateTimeZone( '' !== $name ? $name : 'Europe/Athens' );
+			} catch ( Exception $e ) {
+				$tz = new DateTimeZone( 'Europe/Athens' );
+			}
+		}
+		return $tz;
+	}
+
+	/** Current time formatted in the plugin timezone. */
+	public static function now( $format = 'Y-m-d H:i:s' ) {
+		$d = new DateTime( 'now', self::tz() );
+		return $d->format( $format );
+	}
+
+	public static function now_ts() {
+		return time();
+	}
+
+	/** Format a unix timestamp in the plugin timezone. */
+	public static function fmt( $format, $timestamp ) {
+		$d = new DateTime( '@' . (int) $timestamp );
+		$d->setTimezone( self::tz() );
+		return $d->format( $format );
 	}
 
 	/** Dates (Y-m-d) from a free-text list: one per line or comma separated, "a..b" ranges allowed. */

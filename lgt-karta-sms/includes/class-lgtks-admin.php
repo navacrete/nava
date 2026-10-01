@@ -147,7 +147,11 @@ class LGTKS_Admin {
 				$counts[ $r['status'] ]++;
 			}
 		}
-		echo '<div class="wrap lgtks-wrap"><h1>Κάρτα Εργασίας – ' . esc_html( wp_date( 'l d/m/Y, H:i' ) ) . '</h1>';
+		echo '<div class="wrap lgtks-wrap"><h1>Κάρτα Εργασίας – ' . esc_html( LGTKS_Settings::now( 'l d/m/Y, H:i' ) ) . ' <small style="font-size:13px;color:#646970">(' . esc_html( LGTKS_Settings::tz()->getName() ) . ')</small></h1>';
+		$wp_now = wp_date( 'H:i' );
+		if ( $wp_now !== LGTKS_Settings::now( 'H:i' ) ) {
+			echo '<div class="notice notice-warning"><p>Η ζώνη ώρας του WordPress (Ρυθμίσεις → Γενικά) δείχνει <strong>' . esc_html( $wp_now ) . '</strong> ενώ η ώρα Ελλάδας είναι <strong>' . esc_html( LGTKS_Settings::now( 'H:i' ) ) . '</strong>. Το plugin χρησιμοποιεί την ώρα Ελλάδας, οπότε οι ειδοποιήσεις είναι σωστές· καλό είναι όμως να ορίσετε στο WordPress ζώνη ώρας «Αθήνα» (όχι UTC+2) για να συμφωνούν και οι υπόλοιπες ώρες του site.</p></div>';
+		}
 		if ( ! $enabled ) {
 			echo '<div class="notice notice-warning"><p><strong>Οι αυτόματες ειδοποιήσεις είναι απενεργοποιημένες.</strong> Ενεργοποιήστε τις στις <a href="' . esc_url( self::url( 'settings' ) ) . '">Ρυθμίσεις</a> όταν ολοκληρώσετε τη διαμόρφωση. Οι χειροκίνητες ενέργειες εδώ λειτουργούν κανονικά.</p></div>';
 		}
@@ -156,7 +160,7 @@ class LGTKS_Admin {
 		echo '<div class="lgtks-card"><h3>Δεν χτύπησαν</h3><div class="big" style="color:#842029">' . (int) $counts['due'] . '</div></div>';
 		echo '<div class="lgtks-card"><h3>Σε αναμονή</h3><div class="big">' . (int) $counts['not_yet'] . '</div></div>';
 		echo '<div class="lgtks-card"><h3>Τελευταίος έλεγχος</h3><div>' . ( $last_run ? esc_html( $last_run['at'] ) : '—' ) . '</div>';
-		echo '<div style="color:#646970">Επόμενος (WP-Cron): ' . ( $next ? esc_html( wp_date( 'H:i', $next ) ) : '—' ) . '</div></div>';
+		echo '<div style="color:#646970">Επόμενος (WP-Cron): ' . ( $next ? esc_html( LGTKS_Settings::fmt( 'H:i', $next ) ) : '—' ) . '</div></div>';
 		echo '<div class="lgtks-card"><h3>Τελευταίος συγχρονισμός πηγής</h3><div>' . ( $last_sync ? esc_html( $last_sync['at'] . ' – ' . $last_sync['msg'] ) : '—' ) . '</div>';
 		if ( 'evardia' === LGTKS_Settings::get( 'source_type' ) ) {
 			echo '<div style="color:#646970">Πηγή: eVardia' . ( LGTKS_Settings::get( 'ev_use_schedule' ) ? ' (ωράρια + χτυπήματα)' : ' (μόνο χτυπήματα)' ) . '</div>';
@@ -252,14 +256,14 @@ class LGTKS_Admin {
 	public static function handle_manual_punch() {
 		self::guard( 'manual_punch' );
 		$id = isset( $_POST['employee_id'] ) ? (int) $_POST['employee_id'] : 0;
-		LGTKS_DB::add_punch( $id, current_time( 'mysql' ), 'in', 'manual', 'admin:' . get_current_user_id() );
+		LGTKS_DB::add_punch( $id, LGTKS_Settings::now( 'Y-m-d H:i:s' ), 'in', 'manual', 'admin:' . get_current_user_id() );
 		self::back( '', 'Καταχωρήθηκε χειροκίνητο χτύπημα.' );
 	}
 
 	public static function handle_undo_punch() {
 		self::guard( 'undo_punch' );
 		$id = isset( $_POST['employee_id'] ) ? (int) $_POST['employee_id'] : 0;
-		LGTKS_DB::delete_punches( $id, current_time( 'Y-m-d' ) );
+		LGTKS_DB::delete_punches( $id, LGTKS_Settings::now( 'Y-m-d' ) );
 		self::back( '', 'Τα σημερινά χτυπήματα διαγράφηκαν.' );
 	}
 
@@ -270,7 +274,7 @@ class LGTKS_Admin {
 		foreach ( $rows as $r ) {
 			if ( (int) $r['employee']['id'] === $id ) {
 				if ( '' === $r['start'] ) {
-					$r['start'] = wp_date( 'H:i' );
+					$r['start'] = LGTKS_Settings::now( 'H:i' );
 				}
 				$ok = LGTKS_Checker::notify( $r, 1, true );
 				self::back( '', $ok ? 'Η ειδοποίηση εστάλη.' : 'Η ειδοποίηση απέτυχε – δείτε το Ιστορικό.', $ok ? 'success' : 'error' );
@@ -496,6 +500,7 @@ class LGTKS_Admin {
 		self::area( 'manager_message_template', 'Μήνυμα στον υπεύθυνο (ανά εργαζόμενο)', 'Ίδιες μεταβλητές.', 2 );
 		self::text( 'manager_summary_subject', 'Θέμα email συνολικής κατάστασης', 'Μεταβλητές: {date} {now} {due} {company}.' );
 		self::area( 'holidays', 'Αργίες (όλη η εταιρεία)', 'Ημερομηνίες ΕΕΕΕ-ΜΜ-ΗΗ, π.χ. <code>2026-10-28, 2026-12-25, 2026-12-26, 2027-01-01</code>. Διάστημα: <code>2026-08-10..2026-08-16</code>.', 2 );
+		self::text( 'timezone', 'Ζώνη ώρας', 'Το plugin δουλεύει πάντα σε αυτή τη ζώνη (προεπιλογή <code>Europe/Athens</code>, με αυτόματη θερινή/χειμερινή ώρα), ανεξάρτητα από τη ρύθμιση του WordPress. Τρέχουσα ώρα plugin: <strong>' . esc_html( LGTKS_Settings::now( 'd/m/Y H:i' ) ) . '</strong>.' );
 		self::text( 'country_prefix', 'Κωδικός χώρας', 'Προστίθεται σε κινητά 10 ψηφίων (69…). Ελλάδα = 30.', 'text', 'style="width:90px"' );
 		echo '</tbody></table></div>';
 
@@ -666,7 +671,7 @@ class LGTKS_Admin {
 	public static function handle_test_sms() {
 		self::guard( 'test_sms' );
 		$mobile = isset( $_POST['mobile'] ) ? sanitize_text_field( wp_unslash( $_POST['mobile'] ) ) : '';
-		$res    = LGTKS_SMS::send( $mobile, 'Δοκιμαστικό SMS από ' . LGTKS_Settings::get( 'company_name' ) . ' (Κάρτα Εργασίας). ' . wp_date( 'd/m H:i' ) );
+		$res    = LGTKS_SMS::send( $mobile, 'Δοκιμαστικό SMS από ' . LGTKS_Settings::get( 'company_name' ) . ' (Κάρτα Εργασίας). ' . LGTKS_Settings::now( 'd/m H:i' ) );
 		set_transient( 'lgtks_test_' . get_current_user_id(), array( 'title' => 'Απάντηση παρόχου SMS (' . LGTKS_SMS::normalize( $mobile ) . ')', 'body' => $res['response'] ), 120 );
 		LGTKS_DB::log( $res['ok'] ? 'info' : 'error', 'Δοκιμαστικό SMS σε ' . $mobile, $res['response'] );
 		self::back( 'settings', $res['ok'] ? 'Το δοκιμαστικό SMS εστάλη.' : 'Το δοκιμαστικό SMS απέτυχε – δείτε την απάντηση παρακάτω.', $res['ok'] ? 'success' : 'error' );
@@ -678,7 +683,7 @@ class LGTKS_Admin {
 		if ( ! LGTKS_Source::is_pull( $type ) ) {
 			self::back( 'settings', 'Η δοκιμή αφορά μόνο API/CSV/σύνδεση με κωδικούς. Για webhook, στείλτε ένα δοκιμαστικό POST στο URL.', 'warning' );
 		}
-		$day = current_time( 'Y-m-d' );
+		$day = LGTKS_Settings::now( 'Y-m-d' );
 		if ( 'evardia' === $type ) {
 			delete_transient( LGTKS_Evardia::COOKIE_TRANSIENT );
 			delete_transient( LGTKS_Evardia::PAGE_TRANSIENT );

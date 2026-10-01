@@ -68,7 +68,7 @@ class LGTKS_DB {
 			'days_off'      => sanitize_textarea_field( $data['days_off'] ?? '' ),
 			'notes'         => sanitize_textarea_field( $data['notes'] ?? '' ),
 			'active'        => empty( $data['active'] ) ? 0 : 1,
-			'updated_at'    => current_time( 'mysql' ),
+			'updated_at'    => LGTKS_Settings::now( 'Y-m-d H:i:s' ),
 		);
 		$fmt = array( '%s', '%s', '%s', '%s', '%s', '%s', '%s', '%d', '%s', '%s', '%d', '%s' );
 		if ( null === $row['grace_minutes'] ) {
@@ -83,7 +83,7 @@ class LGTKS_DB {
 			}
 			return (int) $id;
 		}
-		$row['created_at'] = current_time( 'mysql' );
+		$row['created_at'] = LGTKS_Settings::now( 'Y-m-d H:i:s' );
 		$fmt[]             = '%s';
 		$wpdb->insert( self::t( 'employees' ), $row, $fmt ); // phpcs:ignore WordPress.DB
 		return (int) $wpdb->insert_id;
@@ -110,7 +110,7 @@ class LGTKS_DB {
 				$kind,
 				substr( (string) $source, 0, 20 ),
 				substr( (string) $raw_ref, 0, 190 ),
-				current_time( 'mysql' )
+				LGTKS_Settings::now( 'Y-m-d H:i:s' )
 			)
 		);
 		return (int) $ok === 1;
@@ -157,7 +157,7 @@ class LGTKS_DB {
 				'message'     => $message,
 				'status'      => $status,
 				'response'    => is_string( $response ) ? substr( $response, 0, 5000 ) : wp_json_encode( $response ),
-				'created_at'  => current_time( 'mysql' ),
+				'created_at'  => LGTKS_Settings::now( 'Y-m-d H:i:s' ),
 			),
 			array( '%d', '%s', '%d', '%s', '%s', '%s', '%s', '%s', '%s' )
 		);
@@ -189,7 +189,7 @@ class LGTKS_DB {
 				'level'      => substr( $level, 0, 10 ),
 				'message'    => $message,
 				'context'    => null === $context ? null : ( is_string( $context ) ? substr( $context, 0, 10000 ) : substr( wp_json_encode( $context, JSON_UNESCAPED_UNICODE ), 0, 10000 ) ),
-				'created_at' => current_time( 'mysql' ),
+				'created_at' => LGTKS_Settings::now( 'Y-m-d H:i:s' ),
 			),
 			array( '%s', '%s', '%s', '%s' )
 		);

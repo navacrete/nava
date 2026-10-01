@@ -14,7 +14,7 @@ class LGTKS_Checker {
 	 * status: off | holiday | not_yet | due | late_window_passed | present
 	 */
 	public static function status_for_day( $day = null ) {
-		$tz    = wp_timezone();
+		$tz    = LGTKS_Settings::tz();
 		$now   = new DateTime( 'now', $tz );
 		$day   = $day ? $day : $now->format( 'Y-m-d' );
 		$d     = new DateTime( $day, $tz );
@@ -97,7 +97,7 @@ class LGTKS_Checker {
 		}
 		set_transient( 'lgtks_running', 1, 2 * MINUTE_IN_SECONDS );
 
-		$day     = current_time( 'Y-m-d' );
+		$day     = LGTKS_Settings::now( 'Y-m-d' );
 		$summary = array( 'day' => $day, 'due' => 0, 'sent' => 0, 'failed' => 0, 'sync' => null );
 		try {
 			$rows   = self::status_for_day( $day );
@@ -123,7 +123,7 @@ class LGTKS_Checker {
 				$rows            = self::status_for_day( $day );
 			}
 			$second = (int) LGTKS_Settings::get( 'second_reminder_minutes', 0 );
-			$now_ts = current_time( 'timestamp' );
+			$now_ts = LGTKS_Settings::now_ts();
 			foreach ( $rows as $r ) {
 				if ( 'due' !== $r['status'] ) {
 					continue;
@@ -140,7 +140,7 @@ class LGTKS_Checker {
 				$sent_rounds = array();
 				foreach ( $r['sms'] as $n ) {
 					if ( 'sent' === $n['status'] && ! isset( $sent_rounds[ (int) $n['round'] ] ) ) {
-						$sent_rounds[ (int) $n['round'] ] = strtotime( $n['created_at'] );
+						$sent_rounds[ (int) $n['round'] ] = ( new DateTime( $n['created_at'], LGTKS_Settings::tz() ) )->getTimestamp();
 					}
 				}
 				$round = 0;
@@ -162,7 +162,7 @@ class LGTKS_Checker {
 		} finally {
 			delete_transient( 'lgtks_running' );
 		}
-		update_option( 'lgt_ks_last_run', array( 'at' => current_time( 'mysql' ), 'summary' => $summary ) );
+		update_option( 'lgt_ks_last_run', array( 'at' => LGTKS_Settings::now( 'Y-m-d H:i:s' ), 'summary' => $summary ) );
 		if ( $summary['due'] || $summary['sync'] ) {
 			LGTKS_DB::log( 'info', 'Έλεγχος', $summary );
 		}
@@ -175,7 +175,7 @@ class LGTKS_Checker {
 	 */
 	public static function notify( array $row, $round = 1, $force = false ) {
 		$e       = $row['employee'];
-		$day     = current_time( 'Y-m-d' );
+		$day     = LGTKS_Settings::now( 'Y-m-d' );
 		$vars    = self::vars( $row );
 		$msg     = strtr( (string) LGTKS_Settings::get( 'message_template' ), $vars );
 		$channel = isset( $e['notify_channel'] ) ? $e['notify_channel'] : 'sms';
@@ -264,8 +264,8 @@ class LGTKS_Checker {
 			}
 			$groups[ $k ][] = $line;
 		}
-		$now  = wp_date( 'd/m/Y H:i' );
-		$vars = array( '{date}' => wp_date( 'd/m/Y' ), '{now}' => wp_date( 'H:i' ), '{due}' => count( $groups['due'] ), '{company}' => (string) LGTKS_Settings::get( 'company_name' ) );
+		$now  = LGTKS_Settings::now( 'd/m/Y H:i' );
+		$vars = array( '{date}' => LGTKS_Settings::now( 'd/m/Y' ), '{now}' => LGTKS_Settings::now( 'H:i' ), '{due}' => count( $groups['due'] ), '{company}' => (string) LGTKS_Settings::get( 'company_name' ) );
 		$subj = strtr( (string) LGTKS_Settings::get( 'manager_summary_subject' ), $vars );
 		$body = 'Κατάσταση κάρτας εργασίας – ' . $now . "\n\n";
 		$body .= 'ΔΕΝ ΕΧΟΥΝ ΧΤΥΠΗΣΕΙ (' . count( $groups['due'] ) . "):\n" . ( $groups['due'] ? '  • ' . implode( "\n  • ", $groups['due'] ) : '  —' ) . "\n\n";
@@ -276,7 +276,7 @@ class LGTKS_Checker {
 		$res = array( 'sent' => 0, 'failed' => 0, 'due' => count( $groups['due'] ), 'error' => '' );
 		foreach ( $emails as $to ) {
 			$ok = wp_mail( $to, $subj, $body );
-			LGTKS_DB::add_notification( 0, current_time( 'Y-m-d' ), 1, 'manager_summary', $to, $subj, $ok ? 'sent' : 'failed', $ok ? 'wp_mail OK' : 'wp_mail απέτυχε (ελέγξτε SMTP)' );
+			LGTKS_DB::add_notification( 0, LGTKS_Settings::now( 'Y-m-d' ), 1, 'manager_summary', $to, $subj, $ok ? 'sent' : 'failed', $ok ? 'wp_mail OK' : 'wp_mail απέτυχε (ελέγξτε SMTP)' );
 			$res[ $ok ? 'sent' : 'failed' ]++;
 		}
 		return $res;
@@ -302,7 +302,7 @@ class LGTKS_Checker {
 	public static function vars( array $row ) {
 		$e     = $row['employee'];
 		$parts = preg_split( '/\s+/', trim( $e['name'] ) );
-		$tz    = wp_timezone();
+		$tz    = LGTKS_Settings::tz();
 		$now   = new DateTime( 'now', $tz );
 		return array(
 			'{name}'       => $e['name'],
