@@ -117,7 +117,7 @@ class LGTKS_Admin {
 	}
 
 	private static function notif_channel_label( $c ) {
-		$map = array( 'sms' => 'SMS', 'email' => 'Email', 'manager' => 'Υπεύθυνος (SMS)', 'manager_email' => 'Υπεύθυνος (Email)', 'manager_summary' => 'Υπεύθυνοι – συνολική κατάσταση (email)', 'manager_digest' => 'Υπεύθυνοι – συγκεντρωτικό SMS', 'punch_email' => 'Email χτυπήματος' );
+		$map = array( 'sms' => 'SMS', 'email' => 'Email', 'manager' => 'Υπεύθυνος (SMS)', 'manager_email' => 'Υπεύθυνος (Email)', 'manager_summary' => 'Υπεύθυνοι – συνολική κατάσταση (email)', 'manager_digest' => 'Υπεύθυνοι – συγκεντρωτικό SMS', 'punch_email' => 'Email χτυπήματος', 'anomaly_email' => 'Διπλή προσέλευση (email)' );
 		return isset( $map[ $c ] ) ? $map[ $c ] : $c;
 	}
 
@@ -516,6 +516,7 @@ class LGTKS_Admin {
 		self::text( 'manager_escalation_minutes', 'Άμεση κλιμάκωση μετά από (λεπτά)', 'Αν ένας εργαζόμενος ξεπεράσει τόσα λεπτά καθυστέρησης χωρίς χτύπημα, ο υπεύθυνος ειδοποιείται <strong>αμέσως</strong>, χωρίς να περιμένει τη συγκεντρωτική (μία φορά ανά εργαζόμενο ανά ημέρα). 0 = απενεργοποίηση.', 'number', 'min="0" max="600" style="width:90px"' );
 		self::area( 'manager_escalation_template', 'Μήνυμα κλιμάκωσης', 'Μεταβλητές: {name} {first_name} {time} {minutes} {date} {now}.', 2 );
 		self::check( 'clockin_email', 'Email σε κάθε χτύπημα κάρτας', 'Κάθε φορά που καταγράφεται χτύπημα, στέλνεται email με όνομα, ώρα, βάρδια και καθυστέρηση. Εξαιρούνται οι εργαζόμενοι που έχουν «όχι ο υπεύθυνος». Αν σε έναν συγχρονισμό βρεθούν πάνω από 5 νέα χτυπήματα μαζί (π.χ. μετά από διακοπή), στέλνεται ένα συγκεντρωτικό email.' );
+		self::check( 'anomaly_email', 'Email σε διπλή προσέλευση', 'Αν ένας εργαζόμενος χτυπήσει δεύτερη προσέλευση χωρίς αποχώρηση ανάμεσα (ή περισσότερες προσελεύσεις από τις βάρδιές του), στέλνεται email στους ίδιους παραλήπτες, μία φορά ανά εργαζόμενο την ημέρα. Εξαιρούνται όσοι έχουν «όχι ο υπεύθυνος».' );
 		self::select( 'clockin_email_kinds', 'Για ποια χτυπήματα', array( 'in' => 'Μόνο προσελεύσεις', 'all' => 'Προσελεύσεις και αποχωρήσεις' ) );
 		self::area( 'clockin_email_to', 'Παραλήπτες email χτυπημάτων', 'Ένα ανά γραμμή ή με κόμμα. Κενό = τα «Email υπευθύνων».', 2 );
 		self::text( 'clockin_email_subject', 'Θέμα email χτυπήματος', 'Μεταβλητές: {name} {first_name} {punch_time} {kind} {time} (βάρδια) {delay} {date} {company}.' );
@@ -681,7 +682,7 @@ class LGTKS_Admin {
 			if ( in_array( $k, array( 'webhook_token', 'cron_token' ), true ) ) {
 				continue;
 			}
-			if ( is_int( $d ) && in_array( $k, array( 'enabled', 'delete_on_uninstall', 'ev_use_schedule', 'ev_auto_create', 'manager_per_employee', 'manager_digest_all_ok', 'clockin_email', 'holidays_auto', 'holiday_clean_monday', 'holiday_holy_spirit', 'holiday_good_friday' ), true ) ) {
+			if ( is_int( $d ) && in_array( $k, array( 'enabled', 'delete_on_uninstall', 'ev_use_schedule', 'ev_auto_create', 'manager_per_employee', 'manager_digest_all_ok', 'clockin_email', 'anomaly_email', 'holidays_auto', 'holiday_clean_monday', 'holiday_holy_spirit', 'holiday_good_friday' ), true ) ) {
 				$out[ $k ] = empty( $in[ $k ] ) ? 0 : 1;
 			} elseif ( is_int( $d ) ) {
 				$out[ $k ] = isset( $in[ $k ] ) ? max( 0, (int) $in[ $k ] ) : $d;

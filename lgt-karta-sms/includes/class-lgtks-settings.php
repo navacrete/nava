@@ -25,6 +25,7 @@ class LGTKS_Settings {
 			'manager_channel'          => 'both',
 			'manager_per_employee'     => 0,
 			'clockin_email'            => 1,
+			'anomaly_email'            => 1,
 			'clockin_email_kinds'      => 'in',
 			'clockin_email_to'         => '',
 			'clockin_email_subject'    => 'Χτύπημα κάρτας: {name} {punch_time} ({kind})',

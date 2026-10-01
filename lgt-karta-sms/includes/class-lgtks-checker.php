@@ -167,6 +167,7 @@ class LGTKS_Checker {
 					$summary['failed']++;
 				}
 			}
+			$summary['double'] = self::check_double_clockins( $day );
 			$summary['digest'] = self::run_digest( $rows );
 		} finally {
 			delete_transient( 'lgtks_running' );
@@ -239,6 +240,61 @@ class LGTKS_Checker {
 			}
 		}
 		return $to_emp ? $ok_any : $mgr_sent;
+	}
+
+	/**
+	 * Detect a second clock-in without a clock-out in between (or more clock-ins than scheduled shifts)
+	 * and email the managers once per employee per day.
+	 */
+	public static function check_double_clockins( $day ) {
+		if ( ! LGTKS_Settings::get( 'anomaly_email', 1 ) ) {
+			return 0;
+		}
+		$to = LGTKS_Settings::clockin_emails();
+		if ( ! $to ) {
+			return 0;
+		}
+		$ev   = ( 'evardia' === LGTKS_Settings::get( 'source_type' ) ) ? LGTKS_Evardia::today_rows( $day ) : array();
+		$sent = 0;
+		foreach ( LGTKS_DB::punch_list_for_day( $day ) as $emp_id => $list ) {
+			$ins       = array();
+			$double    = array();
+			$open_in   = null;
+			foreach ( $list as $p ) {
+				if ( 'in' === $p['kind'] ) {
+					$ins[] = substr( $p['punched_at'], 11, 5 );
+					if ( null !== $open_in ) {
+						$double[] = $open_in . ' → ' . substr( $p['punched_at'], 11, 5 );
+					}
+					$open_in = substr( $p['punched_at'], 11, 5 );
+				} else {
+					$open_in = null;
+				}
+			}
+			$shifts = isset( $ev[ $emp_id ] ) ? count( array_filter( $ev[ $emp_id ]['shifts'], function ( $s ) { return '' !== $s['start']; } ) ) : 1;
+			if ( ! $double && count( $ins ) <= max( 1, $shifts ) ) {
+				continue;
+			}
+			$e = LGTKS_DB::employee( $emp_id );
+			if ( ! $e || ! in_array( $e['notify_target'], array( 'both', 'manager' ), true ) ) {
+				continue;
+			}
+			if ( LGTKS_DB::has_notification( $emp_id, $day, 'anomaly_email' ) ) {
+				continue;
+			}
+			$why  = $double ? 'Δεύτερη προσέλευση χωρίς ενδιάμεση αποχώρηση: ' . implode( ', ', $double ) : sprintf( '%d προσελεύσεις ενώ οι βάρδιες της ημέρας είναι %d', count( $ins ), $shifts );
+			$subj = 'Διπλή προσέλευση: ' . $e['name'] . ' (' . implode( ', ', $ins ) . ')';
+			$body = "Πιθανό διπλό χτύπημα προσέλευσης\n\nΕργαζόμενος: " . $e['name'] . "\nΗμερομηνία: " . LGTKS_Settings::fmt( 'd/m/Y', strtotime( $day ) ) . "\nΠροσελεύσεις: " . implode( ', ', $ins ) . "\n" . $why . "\n\nΕλέγξτε την εγγραφή στο eVardia / ΕΡΓΑΝΗ και διορθώστε αν χρειάζεται.\n\n" . (string) LGTKS_Settings::get( 'company_name' );
+			foreach ( $to as $addr ) {
+				$ok = wp_mail( $addr, $subj, $body );
+				LGTKS_DB::add_notification( $emp_id, $day, 1, 'anomaly_email', $addr, $subj . ' – ' . $why, $ok ? 'sent' : 'failed', $ok ? 'wp_mail OK' : 'wp_mail απέτυχε' );
+				$sent += $ok ? 1 : 0;
+			}
+			if ( ! $to ) {
+				LGTKS_DB::add_notification( $emp_id, $day, 1, 'anomaly_email', '', $subj, 'failed', 'χωρίς παραλήπτες' );
+			}
+		}
+		return $sent;
 	}
 
 	/**

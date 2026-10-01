@@ -122,6 +122,23 @@ class LGTKS_DB {
 		return $wpdb->get_var( $wpdb->prepare( 'SELECT MIN(punched_at) FROM ' . self::t( 'punches' ) . ' WHERE employee_id = %d AND day = %s', $employee_id, $day ) ); // phpcs:ignore WordPress.DB
 	}
 
+	/** All punches of a day ordered by time: [employee_id => [ {punched_at, kind, source}, … ]]. */
+	public static function punch_list_for_day( $day ) {
+		global $wpdb;
+		$rows = $wpdb->get_results( $wpdb->prepare( 'SELECT employee_id, punched_at, kind, source FROM ' . self::t( 'punches' ) . ' WHERE day = %s ORDER BY punched_at ASC, id ASC', $day ), ARRAY_A ); // phpcs:ignore WordPress.DB
+		$out  = array();
+		foreach ( $rows ? $rows : array() as $r ) {
+			$out[ (int) $r['employee_id'] ][] = $r;
+		}
+		return $out;
+	}
+
+	/** Has a notification of this channel already been recorded for the employee today? */
+	public static function has_notification( $employee_id, $day, $channel ) {
+		global $wpdb;
+		return (bool) $wpdb->get_var( $wpdb->prepare( 'SELECT 1 FROM ' . self::t( 'notifications' ) . ' WHERE employee_id = %d AND day = %s AND channel = %s LIMIT 1', $employee_id, $day, $channel ) ); // phpcs:ignore WordPress.DB
+	}
+
 	public static function first_punch_after( $employee_id, $day, $from ) {
 		global $wpdb;
 		return $wpdb->get_var( $wpdb->prepare( 'SELECT MIN(punched_at) FROM ' . self::t( 'punches' ) . ' WHERE employee_id = %d AND day = %s AND punched_at >= %s', $employee_id, $day, $from ) ); // phpcs:ignore WordPress.DB
