@@ -102,10 +102,13 @@ class LGTKS_Checker {
 				if ( 'due' !== $r['status'] ) {
 					continue;
 				}
+				if ( 'none' === $r['employee']['notify_channel'] ) {
+					continue; // excluded from notifications
+				}
 				$summary['due']++;
 				$sent_rounds = array();
 				foreach ( $r['sms'] as $n ) {
-					if ( 'sent' === $n['status'] ) {
+					if ( 'sent' === $n['status'] && ! isset( $sent_rounds[ (int) $n['round'] ] ) ) {
 						$sent_rounds[ (int) $n['round'] ] = strtotime( $n['created_at'] );
 					}
 				}
@@ -135,16 +138,40 @@ class LGTKS_Checker {
 		return $summary;
 	}
 
-	/** Send SMS to the employee (+ manager on round 1). Returns true if employee SMS was sent. */
+	/**
+	 * Notify the employee by SMS and/or email according to notify_channel (+ manager on round 1).
+	 * Returns true if at least one employee notification was sent.
+	 */
 	public static function notify( array $row, $round = 1, $force = false ) {
-		$e    = $row['employee'];
-		$day  = current_time( 'Y-m-d' );
-		$vars = self::vars( $row );
-		$msg  = strtr( (string) LGTKS_Settings::get( 'message_template' ), $vars );
-		$res  = LGTKS_SMS::send( $e['mobile'], $msg );
-		LGTKS_DB::add_notification( $e['id'], $day, $round, 'sms', $e['mobile'], $msg, $res['ok'] ? 'sent' : 'failed', $res['response'] );
-		if ( ! $res['ok'] ) {
-			LGTKS_DB::log( 'error', 'Αποτυχία SMS σε ' . $e['name'] . ' (' . $e['mobile'] . ')', $res['response'] );
+		$e       = $row['employee'];
+		$day     = current_time( 'Y-m-d' );
+		$vars    = self::vars( $row );
+		$msg     = strtr( (string) LGTKS_Settings::get( 'message_template' ), $vars );
+		$channel = isset( $e['notify_channel'] ) ? $e['notify_channel'] : 'sms';
+		if ( 'none' === $channel ) {
+			// Manual "send now" on an excluded employee: use whatever contact exists.
+			$channel = '' !== trim( $e['mobile'] ) ? 'sms' : 'email';
+		}
+		$ok_any = false;
+		$res    = array( 'ok' => false, 'response' => 'δεν στάλθηκε SMS (κανάλι: ' . $channel . ')' );
+		if ( in_array( $channel, array( 'sms', 'both' ), true ) ) {
+			$res = LGTKS_SMS::send( $e['mobile'], $msg );
+			LGTKS_DB::add_notification( $e['id'], $day, $round, 'sms', $e['mobile'], $msg, $res['ok'] ? 'sent' : 'failed', $res['response'] );
+			if ( ! $res['ok'] ) {
+				LGTKS_DB::log( 'error', 'Αποτυχία SMS σε ' . $e['name'] . ' (' . $e['mobile'] . ')', $res['response'] );
+			}
+			$ok_any = $ok_any || $res['ok'];
+		}
+		if ( in_array( $channel, array( 'email', 'both' ), true ) ) {
+			$to = trim( (string) $e['email'] );
+			if ( '' === $to || ! is_email( $to ) ) {
+				LGTKS_DB::add_notification( $e['id'], $day, $round, 'email', $to, $msg, 'failed', 'Λείπει/άκυρο email εργαζομένου' );
+			} else {
+				$subject = strtr( (string) LGTKS_Settings::get( 'email_subject' ), $vars );
+				$sent    = wp_mail( $to, $subject, $msg );
+				LGTKS_DB::add_notification( $e['id'], $day, $round, 'email', $to, $msg, $sent ? 'sent' : 'failed', $sent ? 'wp_mail OK' : 'wp_mail απέτυχε (ελέγξτε SMTP)' );
+				$ok_any = $ok_any || $sent;
+			}
 		}
 		if ( 1 === (int) $round || $force ) {
 			$mmsg = strtr( (string) LGTKS_Settings::get( 'manager_message_template' ), $vars );
@@ -154,10 +181,10 @@ class LGTKS_Checker {
 			}
 			$email = trim( (string) LGTKS_Settings::get( 'manager_email' ) );
 			if ( '' !== $email && is_email( $email ) ) {
-				wp_mail( $email, '[Κάρτα εργασίας] ' . $e['name'] . ' – δεν χτύπησε κάρτα', $mmsg . "\n\nSMS προς εργαζόμενο: " . ( $res['ok'] ? 'εστάλη' : 'ΑΠΕΤΥΧΕ – ' . $res['response'] ) );
+				wp_mail( $email, '[Κάρτα εργασίας] ' . $e['name'] . ' – δεν χτύπησε κάρτα', $mmsg . "\n\nΕιδοποίηση εργαζομένου (" . $channel . '): ' . ( $ok_any ? 'εστάλη' : 'ΑΠΕΤΥΧΕ – ' . $res['response'] ) );
 			}
 		}
-		return (bool) $res['ok'];
+		return $ok_any;
 	}
 
 	public static function vars( array $row ) {

@@ -3,7 +3,7 @@
  * Plugin Name: LGT Κάρτα Εργασίας SMS
  * Plugin URI:  https://legrandtravel.gr
  * Description: Παίρνει αυτόματα τα χτυπήματα της ψηφιακής κάρτας εργασίας (eVardia: API, CSV ή webhook), βρίσκει ποιοι έχουν βάρδια αλλά δεν χτύπησαν κάρτα και τους στέλνει SMS (και στον υπεύθυνο).
- * Version:     1.0.0
+ * Version:     1.1.0
  * Author:      Le Grand Travel
  * Author URI:  https://legrandtravel.gr
  * Text Domain: lgt-karta-sms
@@ -16,8 +16,8 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'LGT_KS_VERSION', '1.0.0' );
-define( 'LGT_KS_DB_VERSION', '1.0.0' );
+define( 'LGT_KS_VERSION', '1.1.0' );
+define( 'LGT_KS_DB_VERSION', '1.1.0' );
 define( 'LGT_KS_FILE', __FILE__ );
 define( 'LGT_KS_DIR', plugin_dir_path( __FILE__ ) );
 define( 'LGT_KS_URL', plugin_dir_url( __FILE__ ) );

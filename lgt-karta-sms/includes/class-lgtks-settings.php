@@ -23,6 +23,7 @@ class LGTKS_Settings {
 			'manager_mobiles'          => '',
 			'manager_message_template' => '{name} δεν έχει χτυπήσει κάρτα ({date}, βάρδια {time}, καθυστέρηση {minutes} λεπτά).',
 			'manager_email'            => '',
+			'email_subject'            => 'Υπενθύμιση: δεν έχει καταγραφεί χτύπημα κάρτας',
 			'holidays'                 => '',
 			'country_prefix'           => '30',
 			// SMS provider.

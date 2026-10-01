@@ -50,6 +50,8 @@ class LGTKS_Install {
 			id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
 			name VARCHAR(190) NOT NULL DEFAULT '',
 			mobile VARCHAR(40) NOT NULL DEFAULT '',
+			email VARCHAR(190) NOT NULL DEFAULT '',
+			notify_channel VARCHAR(10) NOT NULL DEFAULT 'sms',
 			external_id VARCHAR(100) NOT NULL DEFAULT '',
 			schedule TEXT NULL,
 			grace_minutes INT NULL,
