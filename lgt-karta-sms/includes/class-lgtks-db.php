@@ -120,6 +120,11 @@ class LGTKS_DB {
 		return $wpdb->get_var( $wpdb->prepare( 'SELECT MIN(punched_at) FROM ' . self::t( 'punches' ) . ' WHERE employee_id = %d AND day = %s', $employee_id, $day ) ); // phpcs:ignore WordPress.DB
 	}
 
+	public static function first_punch_after( $employee_id, $day, $from ) {
+		global $wpdb;
+		return $wpdb->get_var( $wpdb->prepare( 'SELECT MIN(punched_at) FROM ' . self::t( 'punches' ) . ' WHERE employee_id = %d AND day = %s AND punched_at >= %s', $employee_id, $day, $from ) ); // phpcs:ignore WordPress.DB
+	}
+
 	public static function punches_for_day( $day ) {
 		global $wpdb;
 		$rows = $wpdb->get_results( $wpdb->prepare( 'SELECT employee_id, MIN(punched_at) AS first_at, COUNT(*) AS cnt FROM ' . self::t( 'punches' ) . ' WHERE day = %s GROUP BY employee_id', $day ), ARRAY_A ); // phpcs:ignore WordPress.DB

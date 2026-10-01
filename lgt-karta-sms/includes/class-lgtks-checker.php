@@ -24,9 +24,19 @@ class LGTKS_Checker {
 		$maxd  = (int) LGTKS_Settings::get( 'max_delay_minutes', 180 );
 		$punch = LGTKS_DB::punches_for_day( $day );
 		$notif = LGTKS_DB::notifications_for_day( $day );
+		$ev    = ( 'evardia' === LGTKS_Settings::get( 'source_type' ) && LGTKS_Settings::get( 'ev_use_schedule' ) ) ? LGTKS_Evardia::today_rows( $day ) : null;
 		$rows  = array();
 		foreach ( LGTKS_DB::employees( true ) as $e ) {
 			$start = isset( $e['schedule'][ $dow ] ) ? $e['schedule'][ $dow ] : '';
+			$shift = null;
+			if ( null !== $ev ) {
+				// Schedule comes from eVardia: no row today = no shift today.
+				$start = '';
+				if ( isset( $ev[ $e['id'] ] ) ) {
+					$shift = LGTKS_Evardia::relevant_shift( $ev[ $e['id'] ], $now );
+					$start = $shift ? $shift['start'] : '';
+				}
+			}
 			$row   = array(
 				'employee'  => $e,
 				'start'     => $start,
@@ -35,7 +45,15 @@ class LGTKS_Checker {
 				'sms'       => isset( $notif[ $e['id'] ] ) ? $notif[ $e['id'] ] : array(),
 				'late_min'  => 0,
 				'deadline'  => null,
+				'shift'     => $shift,
+				'ev'        => null !== $ev,
 			);
+			if ( $shift && '' !== $shift['in'] ) {
+				$row['first_at'] = $day . ' ' . $shift['in'] . ':00';
+			} elseif ( $shift && $row['first_at'] && $shift['start'] > substr( $row['first_at'], 11, 5 ) ) {
+				// A punch recorded before this (later) shift belongs to an earlier shift: look for one after its start.
+				$row['first_at'] = LGTKS_DB::first_punch_after( $e['id'], $day, $day . ' ' . $shift['start'] . ':00' );
+			}
 			if ( $hol ) {
 				$row['status'] = 'holiday';
 			} elseif ( '' === $start ) {
@@ -90,6 +108,14 @@ class LGTKS_Checker {
 					break;
 				}
 			}
+			// eVardia also provides the schedule, so it is synced on every run (page cached 4 min).
+			if ( $sync && 'evardia' === LGTKS_Settings::get( 'source_type' ) ) {
+				$res             = LGTKS_Source::sync( $day );
+				$summary['sync'] = is_wp_error( $res ) ? $res->get_error_message() : $res;
+				$rows            = self::status_for_day( $day );
+				$sync            = false;
+				$anyDue          = false;
+			}
 			// Only hit the external source when someone is actually due – saves API calls.
 			if ( $anyDue && $sync ) {
 				$res             = LGTKS_Source::sync( $day );
@@ -104,6 +130,10 @@ class LGTKS_Checker {
 				}
 				if ( 'none' === $r['employee']['notify_channel'] ) {
 					continue; // excluded from notifications
+				}
+				if ( ! self::has_contact( $r['employee'] ) ) {
+					$summary['no_contact'] = ( $summary['no_contact'] ?? 0 ) + 1;
+					continue; // nothing to send to (e.g. auto-created from eVardia without a mobile yet)
 				}
 				$summary['due']++;
 				$sent_rounds = array();
@@ -185,6 +215,23 @@ class LGTKS_Checker {
 			}
 		}
 		return $ok_any;
+	}
+
+	/** Does the employee have the contact detail their channel needs? */
+	public static function has_contact( array $e ) {
+		$ch = isset( $e['notify_channel'] ) ? $e['notify_channel'] : 'sms';
+		$m  = '' !== trim( (string) $e['mobile'] );
+		$em = is_email( trim( (string) ( $e['email'] ?? '' ) ) );
+		if ( 'sms' === $ch ) {
+			return $m;
+		}
+		if ( 'email' === $ch ) {
+			return (bool) $em;
+		}
+		if ( 'both' === $ch ) {
+			return $m || $em;
+		}
+		return false;
 	}
 
 	public static function vars( array $row ) {

@@ -12,6 +12,21 @@ class LGTKS_WebLogin {
 
 	const COOKIE_TRANSIENT = 'lgtks_weblogin_cookies';
 
+	/** Config from the generic web_login settings. */
+	public static function cfg_from_settings() {
+		return array(
+			'login_url'        => trim( (string) LGTKS_Settings::get( 'wl_login_url' ) ),
+			'username'         => (string) LGTKS_Settings::get( 'wl_username' ),
+			'password'         => (string) LGTKS_Settings::get( 'wl_password' ),
+			'user_field'       => trim( (string) LGTKS_Settings::get( 'wl_user_field', 'username' ) ),
+			'pass_field'       => trim( (string) LGTKS_Settings::get( 'wl_pass_field', 'password' ) ),
+			'extra_fields'     => (string) LGTKS_Settings::get( 'wl_extra_fields' ),
+			'success_contains' => trim( (string) LGTKS_Settings::get( 'wl_success_contains' ) ),
+			'data_url'         => trim( (string) LGTKS_Settings::get( 'wl_data_url' ) ),
+			'cookie_key'       => self::COOKIE_TRANSIENT,
+		);
+	}
+
 	/**
 	 * Fetch and parse the day's records.
 	 *
@@ -26,14 +41,15 @@ class LGTKS_WebLogin {
 	}
 
 	/** Raw body of the data page (for the settings "test" button). */
-	public static function get_data( $day, $retry = true ) {
-		$data_url = trim( (string) LGTKS_Settings::get( 'wl_data_url' ) );
+	public static function get_data( $day, $retry = true, array $cfg = null ) {
+		$cfg      = null === $cfg ? self::cfg_from_settings() : $cfg;
+		$data_url = $cfg['data_url'];
 		if ( '' === $data_url ) {
 			return new WP_Error( 'lgtks', 'Λείπει το URL της σελίδας/αναφοράς με τα χτυπήματα.' );
 		}
-		$cookies = get_transient( self::COOKIE_TRANSIENT );
+		$cookies = get_transient( $cfg['cookie_key'] );
 		if ( ! is_array( $cookies ) || ! $cookies ) {
-			$cookies = self::login();
+			$cookies = self::login( $cfg );
 			if ( is_wp_error( $cookies ) ) {
 				return $cookies;
 			}
@@ -55,9 +71,9 @@ class LGTKS_WebLogin {
 		$body = (string) wp_remote_retrieve_body( $resp );
 		$code = (int) wp_remote_retrieve_response_code( $resp );
 		if ( $code === 401 || $code === 403 || self::looks_like_login_page( $body ) ) {
-			delete_transient( self::COOKIE_TRANSIENT );
+			delete_transient( $cfg['cookie_key'] );
 			if ( $retry ) {
-				return self::get_data( $day, false );
+				return self::get_data( $day, false, $cfg );
 			}
 			return new WP_Error( 'lgtks', 'Η σύνδεση δεν έγινε δεκτή (η σελίδα δεδομένων επέστρεψε τη φόρμα login). Ελέγξτε κωδικούς και ονόματα πεδίων.' );
 		}
@@ -72,22 +88,37 @@ class LGTKS_WebLogin {
 	 *
 	 * @return array|WP_Error
 	 */
-	public static function login() {
-		$login_url = trim( (string) LGTKS_Settings::get( 'wl_login_url' ) );
-		$user      = (string) LGTKS_Settings::get( 'wl_username' );
-		$pass      = (string) LGTKS_Settings::get( 'wl_password' );
-		$uf        = trim( (string) LGTKS_Settings::get( 'wl_user_field', 'username' ) );
-		$pf        = trim( (string) LGTKS_Settings::get( 'wl_pass_field', 'password' ) );
-		if ( '' === $login_url || '' === $user || '' === $pass ) {
-			return new WP_Error( 'lgtks', 'Συμπληρώστε URL σύνδεσης, όνομα χρήστη και κωδικό.' );
+	public static function login( array $cfg = null ) {
+		$cfg       = null === $cfg ? self::cfg_from_settings() : $cfg;
+		$login_url = $cfg['login_url'];
+		$user      = $cfg['username'];
+		$pass      = $cfg['password'];
+		$uf        = '' !== $cfg['user_field'] ? $cfg['user_field'] : 'username';
+		$pf        = '' !== $cfg['pass_field'] ? $cfg['pass_field'] : 'password';
+		if ( '' === $user || '' === $pass ) {
+			return new WP_Error( 'lgtks', 'Συμπληρώστε όνομα χρήστη και κωδικό.' );
+		}
+		if ( '' === $login_url ) {
+			// Discover the login page: request the data page anonymously and follow the redirect.
+			$login_url = '' !== $cfg['data_url'] ? $cfg['data_url'] : '';
+		}
+		if ( '' === $login_url ) {
+			return new WP_Error( 'lgtks', 'Λείπει το URL σύνδεσης.' );
 		}
 		// 1. GET the login page: cookies + hidden fields.
 		$resp = wp_remote_get( $login_url, array( 'timeout' => 30, 'redirection' => 5 ) );
 		if ( is_wp_error( $resp ) ) {
 			return $resp;
 		}
+		$final = self::final_url( $resp );
+		if ( $final ) {
+			$login_url = $final;
+		}
 		$cookies = self::merge_cookies( array(), $resp );
 		$html    = (string) wp_remote_retrieve_body( $resp );
+		if ( ! self::looks_like_login_page( $html ) ) {
+			return new WP_Error( 'lgtks', 'Η σελίδα «' . $login_url . '» δεν περιέχει φόρμα σύνδεσης (πεδίο κωδικού). Δώστε το ακριβές URL login.' );
+		}
 		$form    = self::find_form( $html, $pf, $login_url );
 		$fields  = $form ? $form['fields'] : array();
 		$action  = $form ? $form['action'] : $login_url;
@@ -96,7 +127,7 @@ class LGTKS_WebLogin {
 		}
 		$fields[ $uf ] = $user;
 		$fields[ $pf ] = $pass;
-		foreach ( preg_split( '/\r\n|\r|\n/', (string) LGTKS_Settings::get( 'wl_extra_fields' ) ) as $line ) {
+		foreach ( preg_split( '/\r\n|\r|\n/', (string) $cfg['extra_fields'] ) as $line ) {
 			if ( strpos( $line, '=' ) !== false ) {
 				list( $k, $v )       = explode( '=', $line, 2 );
 				$fields[ trim( $k ) ] = trim( $v );
@@ -129,7 +160,7 @@ class LGTKS_WebLogin {
 				$body    = (string) wp_remote_retrieve_body( $r2 );
 			}
 		}
-		$must = trim( (string) LGTKS_Settings::get( 'wl_success_contains' ) );
+		$must = (string) $cfg['success_contains'];
 		if ( '' !== $must && stripos( $body, $must ) === false ) {
 			return new WP_Error( 'lgtks', 'Η σύνδεση φαίνεται να απέτυχε: δεν βρέθηκε το κείμενο «' . $must . '» μετά το login (HTTP ' . $code . ').' );
 		}
@@ -139,7 +170,7 @@ class LGTKS_WebLogin {
 		if ( ! $cookies ) {
 			return new WP_Error( 'lgtks', 'Δεν δόθηκε cookie συνεδρίας από τον server μετά το login.' );
 		}
-		set_transient( self::COOKIE_TRANSIENT, $cookies, 20 * MINUTE_IN_SECONDS );
+		set_transient( $cfg['cookie_key'], $cookies, 20 * MINUTE_IN_SECONDS );
 		LGTKS_DB::log( 'info', 'Σύνδεση web (login) επιτυχής', array( 'cookies' => array_keys( $cookies ) ) );
 		return $cookies;
 	}
@@ -307,6 +338,21 @@ class LGTKS_WebLogin {
 			'{month}'     => $d->format( 'm' ),
 			'{year}'      => $d->format( 'Y' ),
 		);
+	}
+
+	/** Final URL after redirects, when the HTTP layer exposes it. */
+	public static function final_url( $resp ) {
+		try {
+			if ( is_array( $resp ) && isset( $resp['http_response'] ) && is_object( $resp['http_response'] ) && method_exists( $resp['http_response'], 'get_response_object' ) ) {
+				$o = $resp['http_response']->get_response_object();
+				if ( is_object( $o ) && ! empty( $o->url ) ) {
+					return (string) $o->url;
+				}
+			}
+		} catch ( Exception $e ) {
+			return '';
+		}
+		return '';
 	}
 
 	public static function looks_like_login_page( $html ) {

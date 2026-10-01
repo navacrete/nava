@@ -22,3 +22,6 @@ delete_option( 'lgt_ks_last_sync' );
 delete_option( 'lgt_ks_last_run' );
 delete_transient( 'lgtks_routee_token' );
 delete_transient( 'lgtks_weblogin_cookies' );
+delete_transient( 'lgtks_evardia_cookies' );
+delete_transient( 'lgtks_evardia_page' );
+delete_option( 'lgt_ks_evardia_day' );

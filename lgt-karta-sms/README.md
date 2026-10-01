@@ -23,11 +23,12 @@
 
 ## Πώς «παίρνει» τα χτυπήματα από το eVardia
 
-Το eVardia (Anaconda) δεν δημοσιεύει ανοιχτό API, οπότε το plugin υποστηρίζει **πέντε** τρόπους·
+Το eVardia (Anaconda) δεν δημοσιεύει ανοιχτό API, οπότε το plugin υποστηρίζει **έξι** τρόπους·
 ο πρώτος δεν χρειάζεται τίποτα από την Anaconda· για τους επόμενους ρωτήστε το support τους:
 
 | Τρόπος | Τι χρειάζεται από το eVardia |
 | --- | --- |
+| **eVardia με κωδικούς (προεπιλογή)** | Μόνο όνομα χρήστη/κωδικό eVardia. Το plugin συνδέεται στο evardia.gr και διαβάζει τη σελίδα «Επιλεκτική αποστολή» (`/Ergazomenos/EpilektikhApostolh?fetchAll=False`), που περιέχει για κάθε εργαζόμενο με βάρδια σήμερα: ΑΦΜ, ονοματεπώνυμο, υποκατάστημα, έως 3 βάρδιες (Από/Έως) και τις ώρες Προσ/ση – Αποχ/ση. Οι εργαζόμενοι προστίθενται αυτόματα με ΑΦΜ, **το ωράριο ημέρας έρχεται από το eVardia** (δεν πληκτρολογείτε ωράρια) και τα χτυπήματα καταγράφονται. Εσείς συμπληρώνετε μόνο κινητό/email και κανάλι. Μόνο ανάγνωση. Αν η Anaconda αλλάξει τη σελίδα, θέλει προσαρμογή. |
 | **Σύνδεση με κωδικούς (web login)** | Τίποτα από την Anaconda: το plugin κάνει login στο evardia.gr με το όνομα χρήστη/κωδικό σας, κρατά τη συνεδρία και διαβάζει τη σελίδα ή αναφορά με τα χτυπήματα της ημέρας (πίνακας HTML, JSON ή CSV). Χρειάζεται μία φορά το URL login, το URL της αναφοράς και τις επικεφαλίδες των στηλών. Εξαρτάται από τη δομή του site του eVardia· αν αλλάξει, θέλει ξαναρύθμιση. |
 | **API (JSON)** | URL που επιστρέφει τα χτυπήματα της ημέρας + API key. Δηλώνετε τη διαδρομή της λίστας (`data.records`) και τα ονόματα πεδίων (εργαζόμενος, ώρα, είσοδος/έξοδος). |
 | **CSV από URL** | Σύνδεσμος export (CSV) των χτυπημάτων. Δηλώνετε όνομα ή αριθμό στήλης. |
@@ -86,7 +87,8 @@ includes/class-lgtks-install.php  πίνακες (employees, punches, notificati
 includes/class-lgtks-settings.php ρυθμίσεις, αργίες, headers
 includes/class-lgtks-db.php       εργαζόμενοι, χτυπήματα, ειδοποιήσεις, log
 includes/class-lgtks-source.php   λήψη χτυπημάτων: JSON API / CSV / webhook, αντιστοίχιση
-includes/class-lgtks-weblogin.php login με κωδικούς σε web εφαρμογή (evardia.gr) + ανάγνωση πίνακα/JSON/CSV
+includes/class-lgtks-evardia.php  eVardia: login, ανάγνωση «Επιλεκτικής αποστολής», ωράρια + χτυπήματα, auto-εργαζόμενοι
+includes/class-lgtks-weblogin.php γενικό login με κωδικούς σε web εφαρμογή + ανάγνωση πίνακα/JSON/CSV
 includes/class-lgtks-sms.php      Yuboto / Routee / Twilio / γενικό HTTP
 includes/class-lgtks-checker.php  ο έλεγχος: ποιος εκκρεμεί, αποστολή SMS, 2η υπενθύμιση
 includes/class-lgtks-rest.php     REST: /punch (webhook), /run (εξωτερικό cron)

@@ -133,7 +133,11 @@ class LGTKS_Admin {
 		echo '<div class="lgtks-card"><h3>Σε αναμονή</h3><div class="big">' . (int) $counts['not_yet'] . '</div></div>';
 		echo '<div class="lgtks-card"><h3>Τελευταίος έλεγχος</h3><div>' . ( $last_run ? esc_html( $last_run['at'] ) : '—' ) . '</div>';
 		echo '<div style="color:#646970">Επόμενος (WP-Cron): ' . ( $next ? esc_html( wp_date( 'H:i', $next ) ) : '—' ) . '</div></div>';
-		echo '<div class="lgtks-card"><h3>Τελευταίος συγχρονισμός πηγής</h3><div>' . ( $last_sync ? esc_html( $last_sync['at'] . ' – ' . $last_sync['msg'] ) : '—' ) . '</div></div>';
+		echo '<div class="lgtks-card"><h3>Τελευταίος συγχρονισμός πηγής</h3><div>' . ( $last_sync ? esc_html( $last_sync['at'] . ' – ' . $last_sync['msg'] ) : '—' ) . '</div>';
+		if ( 'evardia' === LGTKS_Settings::get( 'source_type' ) ) {
+			echo '<div style="color:#646970">Πηγή: eVardia' . ( LGTKS_Settings::get( 'ev_use_schedule' ) ? ' (ωράρια + χτυπήματα)' : ' (μόνο χτυπήματα)' ) . '</div>';
+		}
+		echo '</div>';
 		echo '</div>';
 
 		echo '<p>';
@@ -150,7 +154,7 @@ class LGTKS_Admin {
 		foreach ( $rows as $r ) {
 			$e = $r['employee'];
 			echo '<tr>';
-			echo '<td><strong>' . esc_html( $e['name'] ) . '</strong>' . ( $e['external_id'] ? '<br><small>' . esc_html( $e['external_id'] ) . '</small>' : '' ) . '</td>';
+			echo '<td><strong>' . esc_html( $e['name'] ) . '</strong>' . ( $e['external_id'] ? '<br><small>' . esc_html( $e['external_id'] ) . '</small>' : '' ) . ( ( 'none' !== $e['notify_channel'] && ! LGTKS_Checker::has_contact( $e ) ) ? '<br><span class="lgtks-status due">λείπει κινητό/email</span> <a href="' . esc_url( self::url( 'employees', array( 'edit' => $e['id'] ) ) ) . '">συμπλήρωση</a>' : '' ) . '</td>';
 			echo '<td>' . esc_html( $e['mobile'] ) . ( $e['email'] ? '<br><small>' . esc_html( $e['email'] ) . '</small>' : '' ) . '<br><small style="color:#646970">' . esc_html( self::channel_label( $e['notify_channel'] ) ) . '</small></td>';
 			echo '<td>' . ( $r['start'] ? esc_html( $r['start'] ) : '—' ) . '</td>';
 			echo '<td>' . ( $r['deadline'] ? esc_html( $r['deadline'] ) : '—' ) . '</td>';
@@ -247,6 +251,9 @@ class LGTKS_Admin {
 		$edit    = $edit_id ? LGTKS_DB::employee( $edit_id ) : null;
 		$days    = array( 1 => 'Δευ', 2 => 'Τρί', 3 => 'Τετ', 4 => 'Πέμ', 5 => 'Παρ', 6 => 'Σάβ', 7 => 'Κυρ' );
 		echo '<div class="wrap lgtks-wrap"><h1>Εργαζόμενοι</h1>';
+		if ( 'evardia' === LGTKS_Settings::get( 'source_type' ) && LGTKS_Settings::get( 'ev_use_schedule' ) ) {
+			echo '<div class="notice notice-info"><p>Η πηγή είναι το <strong>eVardia</strong>: οι εργαζόμενοι προστίθενται αυτόματα με το ΑΦΜ τους και το ωράριο κάθε ημέρας έρχεται από εκεί. Εδώ συμπληρώνετε <strong>κινητό / email και κανάλι ειδοποίησης</strong>. Οι ώρες ανά ημέρα παρακάτω αγνοούνται όσο είναι ενεργό το «Ωράριο από το eVardia».</p></div>';
+		}
 
 		echo '<div class="lgtks-section"><h2>' . ( $edit ? 'Επεξεργασία: ' . esc_html( $edit['name'] ) : 'Νέος εργαζόμενος' ) . '</h2>';
 		self::form_open( 'save_employee' );
@@ -373,6 +380,10 @@ class LGTKS_Admin {
 
 	private static function text( $key, $label, $desc = '', $type = 'text', $attrs = '' ) {
 		$v = LGTKS_Settings::get( $key );
+		if ( 'password' === $type && in_array( $key, array( 'ev_password', 'wl_password' ), true ) ) {
+			$v = ''; // never echo stored passwords; empty on save = keep
+			$desc .= ( '' !== (string) LGTKS_Settings::get( $key ) ) ? ' <em>(έχει αποθηκευτεί κωδικός)</em>' : '';
+		}
 		echo '<tr><th><label for="' . esc_attr( $key ) . '">' . esc_html( $label ) . '</label></th><td><input type="' . esc_attr( $type ) . '" id="' . esc_attr( $key ) . '" name="s[' . esc_attr( $key ) . ']" class="regular-text" value="' . esc_attr( $v ) . '" ' . $attrs . '>' . ( $desc ? '<p class="description">' . wp_kses_post( $desc ) . '</p>' : '' ) . '</td></tr>';
 	}
 
@@ -451,6 +462,17 @@ class LGTKS_Admin {
 		echo '<div class="lgtks-source" data-s="webhook"><p>Δώστε αυτό το URL στο eVardia (αν υποστηρίζει webhooks/ειδοποιήσεις HTTP) ή σε Zapier/Make/n8n που διαβάζει το eVardia και κάνει POST εδώ για κάθε χτύπημα:</p>';
 		echo '<p><code class="lgtks-url">' . esc_html( $webhook ) . '</code></p>';
 		echo '<p class="description">Δέχεται JSON <code>{"employee":"ΚΩΔΙΚΟΣ ή ΑΦΜ ή κινητό ή ονοματεπώνυμο","datetime":"2026-10-01 09:02","kind":"in"}</code>, λίστα τέτοιων, ή απλά <code>?employee=…&amp;datetime=…</code>. Το token μπορεί να πάει και σε header <code>X-LGTKS-Token</code>. Αν λείπει η ώρα, θεωρείται «τώρα».</p></div>';
+		echo '<div class="lgtks-source" data-s="evardia">';
+		echo '<p>Το plugin συνδέεται στο <strong>evardia.gr</strong> με τους κωδικούς σας και διαβάζει τη σελίδα «Επιλεκτική αποστολή» (Εργαζόμενοι που εργάζονται σήμερα). Από εκεί παίρνει <strong>ποιοι έχουν βάρδια σήμερα, το ωράριό τους και τα χτυπήματα</strong> (Προσ/ση – Αποχ/ση). Μόνο ανάγνωση: δεν στέλνει τίποτα στο eVardia ή στην ΕΡΓΑΝΗ.</p>';
+		echo '<table class="form-table"><tbody>';
+		self::text( 'ev_username', 'Όνομα χρήστη eVardia' );
+		self::text( 'ev_password', 'Κωδικός eVardia', 'Αποθηκεύεται στη βάση του WordPress. Αν το eVardia επιτρέπει δεύτερο χρήστη, φτιάξτε έναν μόνο γι’ αυτό. Κενό = διατήρηση του αποθηκευμένου.', 'password', 'autocomplete="new-password"' );
+		self::text( 'ev_ypokatasthma', 'Υποκατάστημα', '<code>0</code> = όλα τα υποκαταστήματα, αλλιώς ο κωδικός από το φίλτρο της σελίδας (π.χ. <code>171</code>).', 'text', 'style="width:90px"' );
+		self::check( 'ev_use_schedule', 'Ωράριο από το eVardia', 'Χρήση του ωραρίου ημέρας του eVardia (Από/Έως) αντί για τα ωράρια που δηλώνετε ανά εργαζόμενο. Όποιος δεν εμφανίζεται στο eVardia σήμερα θεωρείται εκτός βάρδιας.' );
+		self::check( 'ev_auto_create', 'Αυτόματη προσθήκη εργαζομένων', 'Όποιος εμφανίζεται στο eVardia και δεν υπάρχει εδώ προστίθεται αυτόματα με το ΑΦΜ του. Μετά συμπληρώνετε μόνο κινητό/email και κανάλι.' );
+		self::text( 'ev_base_url', 'Διεύθυνση eVardia', 'Κανονικά <code>https://evardia.gr</code>.', 'url' );
+		self::text( 'ev_login_url', 'URL σελίδας login (προαιρετικό)', 'Αφήστε κενό: εντοπίζεται αυτόματα από την ανακατεύθυνση. Συμπληρώστε μόνο αν η δοκιμή αναφέρει ότι δεν βρήκε φόρμα σύνδεσης.', 'url' );
+		echo '</tbody></table></div>';
 		echo '<div class="lgtks-source" data-s="web_login">';
 		echo '<p>Το plugin συνδέεται στο evardia.gr όπως εσείς στον browser (όνομα χρήστη + κωδικός), κρατά τη συνεδρία και διαβάζει τη σελίδα ή αναφορά με τα χτυπήματα της ημέρας. Τα κρυφά πεδία της φόρμας login (CSRF, __VIEWSTATE κ.λπ.) αντιγράφονται αυτόματα.</p>';
 		echo '<table class="form-table"><tbody>';
@@ -536,22 +558,26 @@ class LGTKS_Admin {
 			if ( in_array( $k, array( 'webhook_token', 'cron_token' ), true ) ) {
 				continue;
 			}
-			if ( is_int( $d ) && in_array( $k, array( 'enabled', 'delete_on_uninstall' ), true ) ) {
+			if ( is_int( $d ) && in_array( $k, array( 'enabled', 'delete_on_uninstall', 'ev_use_schedule', 'ev_auto_create' ), true ) ) {
 				$out[ $k ] = empty( $in[ $k ] ) ? 0 : 1;
 			} elseif ( is_int( $d ) ) {
 				$out[ $k ] = isset( $in[ $k ] ) ? max( 0, (int) $in[ $k ] ) : $d;
 			} elseif ( isset( $in[ $k ] ) ) {
 				$v = (string) $in[ $k ];
 				// Keep headers/bodies/templates raw (they may contain JSON, quotes, {vars}); only strip tags.
-				$out[ $k ] = in_array( $k, array( 'generic_headers', 'generic_body', 'source_headers', 'source_body', 'message_template', 'manager_message_template', 'holidays', 'manager_mobiles', 'wl_extra_fields', 'wl_password', 'wl_username' ), true ) ? wp_strip_all_tags( $v ) : sanitize_text_field( $v );
+				$out[ $k ] = in_array( $k, array( 'generic_headers', 'generic_body', 'source_headers', 'source_body', 'message_template', 'manager_message_template', 'holidays', 'manager_mobiles', 'wl_extra_fields', 'wl_password', 'wl_username', 'ev_password', 'ev_username' ), true ) ? wp_strip_all_tags( $v ) : sanitize_text_field( $v );
 			}
 		}
 		if ( ! empty( $out['sms_sender'] ) ) {
 			$out['sms_sender'] = substr( $out['sms_sender'], 0, 16 );
 		}
-		if ( isset( $out['wl_password'] ) && '' === $out['wl_password'] ) {
-			unset( $out['wl_password'] ); // empty field = keep the stored password
+		foreach ( array( 'wl_password', 'ev_password' ) as $pk ) {
+			if ( isset( $out[ $pk ] ) && '' === $out[ $pk ] ) {
+				unset( $out[ $pk ] ); // empty field = keep the stored password
+			}
 		}
+		delete_transient( LGTKS_Evardia::COOKIE_TRANSIENT );
+		delete_transient( LGTKS_Evardia::PAGE_TRANSIENT );
 		LGTKS_Settings::update( $out );
 		delete_transient( 'lgtks_routee_token' );
 		delete_transient( LGTKS_WebLogin::COOKIE_TRANSIENT );
@@ -574,6 +600,33 @@ class LGTKS_Admin {
 			self::back( 'settings', 'Η δοκιμή αφορά μόνο API/CSV/σύνδεση με κωδικούς. Για webhook, στείλτε ένα δοκιμαστικό POST στο URL.', 'warning' );
 		}
 		$day = current_time( 'Y-m-d' );
+		if ( 'evardia' === $type ) {
+			delete_transient( LGTKS_Evardia::COOKIE_TRANSIENT );
+			delete_transient( LGTKS_Evardia::PAGE_TRANSIENT );
+			$html = LGTKS_Evardia::get_page( true );
+			if ( is_wp_error( $html ) ) {
+				set_transient( 'lgtks_test_' . get_current_user_id(), array( 'title' => 'eVardia – σφάλμα σύνδεσης', 'body' => $html->get_error_message() ), 120 );
+				self::back( 'settings', 'Η σύνδεση στο eVardia απέτυχε.', 'error' );
+			}
+			$rows = LGTKS_Evardia::parse_page( $html );
+			if ( is_wp_error( $rows ) ) {
+				set_transient( 'lgtks_test_' . get_current_user_id(), array( 'title' => 'eVardia – σφάλμα ανάγνωσης', 'body' => $rows->get_error_message() . "\n\n--- Αρχή σελίδας ---\n" . mb_substr( wp_strip_all_tags( $html ), 0, 2000 ) ), 120 );
+				self::back( 'settings', 'Η σύνδεση έγινε αλλά τα δεδομένα δεν διαβάστηκαν.', 'error' );
+			}
+			$rows  = LGTKS_Evardia::normalize( $rows );
+			$idx   = LGTKS_Source::employee_index();
+			$lines = array( count( $rows ) . ' εργαζόμενοι με βάρδια σήμερα στο eVardia:' );
+			foreach ( $rows as $r ) {
+				$sh = array();
+				foreach ( $r['shifts'] as $s ) {
+					$sh[] = $s['start'] . '-' . $s['end'] . ( $s['in'] ? ' προσ. ' . $s['in'] : ' (χωρίς χτύπημα)' ) . ( $s['out'] ? ' αποχ. ' . $s['out'] : '' );
+				}
+				$m       = LGTKS_Source::match( $r['afm'] ?: $r['name'], $idx );
+				$lines[] = sprintf( '%-32s %-11s %-40s %s', $r['name'], $r['afm'], implode( ' | ', $sh ), $m ? 'υπάρχει (#' . $m . ')' : 'ΝΕΟΣ – θα προστεθεί στον συγχρονισμό' );
+			}
+			set_transient( 'lgtks_test_' . get_current_user_id(), array( 'title' => 'eVardia – δοκιμή επιτυχής', 'body' => implode( "\n", $lines ) ), 120 );
+			self::back( 'settings', 'Η σύνδεση στο eVardia πέτυχε. Πατήστε «Έλεγχος τώρα» στη σελίδα «Σήμερα» για να προστεθούν οι εργαζόμενοι.' );
+		}
 		if ( 'web_login' === $type ) {
 			delete_transient( LGTKS_WebLogin::COOKIE_TRANSIENT ); // force a fresh login on test
 		}

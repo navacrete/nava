@@ -41,7 +41,7 @@ class LGTKS_Settings {
 			'generic_body'             => '{"to":"{to}","from":"{sender}","text":"{message}"}',
 			'generic_success_contains' => '',
 			// Clock-in source.
-			'source_type'              => 'webhook',
+			'source_type'              => 'evardia',
 			'source_url'               => '',
 			'source_method'            => 'GET',
 			'source_headers'           => '',
@@ -53,7 +53,15 @@ class LGTKS_Settings {
 			'source_kind_in_value'     => '',
 			'source_date_format'       => '',
 			'csv_delimiter'            => ';',
-			// Web login source (e.g. evardia.gr).
+			// eVardia (evardia.gr) source.
+			'ev_base_url'              => 'https://evardia.gr',
+			'ev_login_url'             => '',
+			'ev_username'              => '',
+			'ev_password'              => '',
+			'ev_ypokatasthma'          => '0',
+			'ev_use_schedule'          => 1,
+			'ev_auto_create'           => 1,
+			// Generic web login source.
 			'wl_login_url'             => '',
 			'wl_username'              => '',
 			'wl_password'              => '',

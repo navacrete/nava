@@ -11,7 +11,8 @@ class LGTKS_Source {
 
 	public static function types() {
 		return array(
-			'web_login' => 'Σύνδεση στο evardia.gr με κωδικούς (το plugin κάνει login και διαβάζει τη σελίδα/αναφορά)',
+			'evardia'   => 'eVardia (evardia.gr) – σύνδεση με τους κωδικούς σας, ωράρια + χτυπήματα από τη σελίδα «Επιλεκτική αποστολή»',
+			'web_login' => 'Άλλη web εφαρμογή με κωδικούς (γενικό login + ανάγνωση σελίδας/αναφοράς)',
 			'webhook'  => 'Webhook / push (το eVardia, Zapier, Make ή άλλο σύστημα στέλνει τα χτυπήματα εδώ)',
 			'api_json' => 'eVardia API (JSON) – το plugin τα κατεβάζει μόνο του',
 			'csv_url'  => 'CSV/Excel export από URL – το plugin το κατεβάζει μόνο του',
@@ -29,6 +30,14 @@ class LGTKS_Source {
 		$type = LGTKS_Settings::get( 'source_type' );
 		if ( ! self::is_pull( $type ) ) {
 			return array( 'records' => 0, 'matched' => 0, 'new' => 0, 'unmatched' => array(), 'skipped' => true );
+		}
+		if ( 'evardia' === $type ) {
+			$res = LGTKS_Evardia::sync();
+			if ( is_wp_error( $res ) ) {
+				LGTKS_DB::log( 'error', 'Συγχρονισμός eVardia απέτυχε: ' . $res->get_error_message() );
+				update_option( 'lgt_ks_last_sync', array( 'at' => current_time( 'mysql' ), 'ok' => false, 'msg' => $res->get_error_message() ) );
+			}
+			return $res;
 		}
 		$records = self::fetch( $type, $day );
 		if ( is_wp_error( $records ) ) {
@@ -84,7 +93,7 @@ class LGTKS_Source {
 
 	/** Source types where the plugin pulls data itself. */
 	public static function is_pull( $type ) {
-		return in_array( $type, array( 'api_json', 'csv_url', 'web_login' ), true );
+		return in_array( $type, array( 'api_json', 'csv_url', 'web_login', 'evardia' ), true );
 	}
 
 	/** Fetch normalized records for a pull-type source. */
