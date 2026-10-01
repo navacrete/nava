@@ -23,6 +23,8 @@ class LGTKS_Settings {
 			'manager_mobiles'          => '',
 			'manager_message_template' => '{name} δεν έχει χτυπήσει κάρτα ({date}, βάρδια {time}, καθυστέρηση {minutes} λεπτά).',
 			'manager_email'            => '',
+			'manager_channel'          => 'both',
+			'manager_summary_subject'  => 'Κάρτα εργασίας {date}: {due} χωρίς χτύπημα',
 			'email_subject'            => 'Υπενθύμιση: δεν έχει καταγραφεί χτύπημα κάρτας',
 			'holidays'                 => '',
 			'country_prefix'           => '30',
@@ -159,6 +161,16 @@ class LGTKS_Settings {
 			}
 		}
 		return $h;
+	}
+
+	public static function manager_emails() {
+		$list = preg_split( '/[\s,;]+/', (string) self::get( 'manager_email' ) );
+		return array_values( array_filter( array_map( 'trim', $list ), 'is_email' ) );
+	}
+
+	public static function manager_channel() {
+		$c = (string) self::get( 'manager_channel', 'both' );
+		return in_array( $c, array( 'both', 'sms', 'email', 'none' ), true ) ? $c : 'both';
 	}
 
 	public static function manager_mobiles() {

@@ -205,16 +205,71 @@ class LGTKS_Checker {
 		}
 		if ( 1 === (int) $round || $force ) {
 			$mmsg = strtr( (string) LGTKS_Settings::get( 'manager_message_template' ), $vars );
-			foreach ( LGTKS_Settings::manager_mobiles() as $m ) {
-				$mr = LGTKS_SMS::send( $m, $mmsg );
-				LGTKS_DB::add_notification( $e['id'], $day, $round, 'manager', $m, $mmsg, $mr['ok'] ? 'sent' : 'failed', $mr['response'] );
+			$mch  = LGTKS_Settings::manager_channel();
+			if ( in_array( $mch, array( 'both', 'sms' ), true ) ) {
+				foreach ( LGTKS_Settings::manager_mobiles() as $m ) {
+					$mr = LGTKS_SMS::send( $m, $mmsg );
+					LGTKS_DB::add_notification( $e['id'], $day, $round, 'manager', $m, $mmsg, $mr['ok'] ? 'sent' : 'failed', $mr['response'] );
+				}
 			}
-			$email = trim( (string) LGTKS_Settings::get( 'manager_email' ) );
-			if ( '' !== $email && is_email( $email ) ) {
-				wp_mail( $email, '[Κάρτα εργασίας] ' . $e['name'] . ' – δεν χτύπησε κάρτα', $mmsg . "\n\nΕιδοποίηση εργαζομένου (" . $channel . '): ' . ( $ok_any ? 'εστάλη' : 'ΑΠΕΤΥΧΕ – ' . $res['response'] ) );
+			if ( in_array( $mch, array( 'both', 'email' ), true ) ) {
+				foreach ( LGTKS_Settings::manager_emails() as $email ) {
+					$sent = wp_mail( $email, '[Κάρτα εργασίας] ' . $e['name'] . ' – δεν χτύπησε κάρτα', $mmsg . "\n\nΕιδοποίηση εργαζομένου (" . $channel . '): ' . ( $ok_any ? 'εστάλη' : 'ΑΠΕΤΥΧΕ – ' . $res['response'] ) );
+					LGTKS_DB::add_notification( $e['id'], $day, $round, 'manager_email', $email, $mmsg, $sent ? 'sent' : 'failed', $sent ? 'wp_mail OK' : 'wp_mail απέτυχε' );
+				}
 			}
 		}
 		return $ok_any;
+	}
+
+	/**
+	 * Send the managers a summary email of today's status (manual button or on demand).
+	 *
+	 * @return array {sent:int, failed:int, due:int, error:string}
+	 */
+	public static function email_managers_summary() {
+		$emails = LGTKS_Settings::manager_emails();
+		if ( ! $emails ) {
+			return array( 'sent' => 0, 'failed' => 0, 'due' => 0, 'error' => 'Δεν έχουν οριστεί email υπευθύνων (Ρυθμίσεις → Email υπευθύνων).' );
+		}
+		$rows   = self::status_for_day();
+		$groups = array( 'due' => array(), 'not_yet' => array(), 'present' => array(), 'late_window_passed' => array(), 'off' => array() );
+		foreach ( $rows as $r ) {
+			$e = $r['employee'];
+			$k = isset( $groups[ $r['status'] ] ) ? $r['status'] : 'off';
+			$line = $e['name'];
+			if ( $r['start'] ) {
+				$line .= ' – βάρδια ' . $r['start'];
+			}
+			if ( 'present' === $k && $r['first_at'] ) {
+				$line .= ' – χτύπησε ' . substr( $r['first_at'], 11, 5 );
+			}
+			if ( 'due' === $k ) {
+				$line .= ' – καθυστέρηση ' . max( 0, (int) $r['late_min'] ) . '′';
+				if ( 'none' === $e['notify_channel'] ) {
+					$line .= ' (εξαιρείται από ειδοποιήσεις)';
+				} elseif ( $r['sms'] ) {
+					$line .= ' (ειδοποιήθηκε ' . substr( end( $r['sms'] )['created_at'], 11, 5 ) . ')';
+				}
+			}
+			$groups[ $k ][] = $line;
+		}
+		$now  = wp_date( 'd/m/Y H:i' );
+		$vars = array( '{date}' => wp_date( 'd/m/Y' ), '{now}' => wp_date( 'H:i' ), '{due}' => count( $groups['due'] ), '{company}' => (string) LGTKS_Settings::get( 'company_name' ) );
+		$subj = strtr( (string) LGTKS_Settings::get( 'manager_summary_subject' ), $vars );
+		$body = 'Κατάσταση κάρτας εργασίας – ' . $now . "\n\n";
+		$body .= 'ΔΕΝ ΕΧΟΥΝ ΧΤΥΠΗΣΕΙ (' . count( $groups['due'] ) . "):\n" . ( $groups['due'] ? '  • ' . implode( "\n  • ", $groups['due'] ) : '  —' ) . "\n\n";
+		$body .= 'Εκτός παραθύρου / πιθανή απουσία (' . count( $groups['late_window_passed'] ) . "):\n" . ( $groups['late_window_passed'] ? '  • ' . implode( "\n  • ", $groups['late_window_passed'] ) : '  —' ) . "\n\n";
+		$body .= 'Σε αναμονή, δεν ήρθε ακόμη η ώρα (' . count( $groups['not_yet'] ) . "):\n" . ( $groups['not_yet'] ? '  • ' . implode( "\n  • ", $groups['not_yet'] ) : '  —' ) . "\n\n";
+		$body .= 'Χτύπησαν (' . count( $groups['present'] ) . "):\n" . ( $groups['present'] ? '  • ' . implode( "\n  • ", $groups['present'] ) : '  —' ) . "\n\n";
+		$body .= 'Ρεπό / εκτός βάρδιας: ' . count( $groups['off'] ) . "\n\n" . (string) LGTKS_Settings::get( 'company_name' );
+		$res = array( 'sent' => 0, 'failed' => 0, 'due' => count( $groups['due'] ), 'error' => '' );
+		foreach ( $emails as $to ) {
+			$ok = wp_mail( $to, $subj, $body );
+			LGTKS_DB::add_notification( 0, current_time( 'Y-m-d' ), 1, 'manager_summary', $to, $subj, $ok ? 'sent' : 'failed', $ok ? 'wp_mail OK' : 'wp_mail απέτυχε (ελέγξτε SMTP)' );
+			$res[ $ok ? 'sent' : 'failed' ]++;
+		}
+		return $res;
 	}
 
 	/** Does the employee have the contact detail their channel needs? */
