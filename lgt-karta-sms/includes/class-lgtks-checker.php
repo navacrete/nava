@@ -290,7 +290,7 @@ class LGTKS_Checker {
 				continue;
 			}
 			$ptime = substr( $p['punched_at'], 11, 5 );
-			$first = preg_split( '/\\s+/', trim( $e['name'] ) )[0];
+			$first = LGTKS_Settings::first_name( $e['name'] );
 			$vars  = array( '{name}' => $e['name'], '{first_name}' => $first, '{punch_time}' => $ptime, '{date}' => LGTKS_Settings::fmt( 'd/m/Y', strtotime( $day ) ), '{company}' => $company );
 			$is_in = 'in' === $p['kind'];
 			$subj  = strtr( (string) LGTKS_Settings::get( $is_in ? 'receipt_subject_in' : 'receipt_subject_out' ), $vars );
@@ -498,7 +498,7 @@ class LGTKS_Checker {
 		foreach ( $items as $it ) {
 			$vars = array(
 				'{name}'       => $it['e']['name'],
-				'{first_name}' => preg_split( '/\s+/', trim( $it['e']['name'] ) )[0],
+				'{first_name}' => LGTKS_Settings::first_name( $it['e']['name'] ),
 				'{punch_time}' => $it['time'],
 				'{kind}'       => $it['kind'],
 				'{time}'       => $it['start'],
@@ -697,12 +697,11 @@ class LGTKS_Checker {
 
 	public static function vars( array $row ) {
 		$e     = $row['employee'];
-		$parts = preg_split( '/\s+/', trim( $e['name'] ) );
 		$tz    = LGTKS_Settings::tz();
 		$now   = new DateTime( 'now', $tz );
 		return array(
 			'{name}'       => $e['name'],
-			'{first_name}' => $parts ? $parts[0] : $e['name'],
+			'{first_name}' => LGTKS_Settings::first_name( $e['name'] ),
 			'{time}'       => $row['start'],
 			'{date}'       => $now->format( 'd/m/Y' ),
 			'{now}'        => $now->format( 'H:i' ),

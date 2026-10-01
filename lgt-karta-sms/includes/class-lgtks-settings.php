@@ -51,6 +51,7 @@ class LGTKS_Settings {
 			'holiday_mode'             => 'skip',
 			'country_prefix'           => '30',
 			'timezone'                 => 'Europe/Athens',
+			'name_order'               => 'last_first',
 			'tech_email'               => get_option( 'admin_email' ),
 			'health_sync_minutes'      => 30,
 			'health_cron_minutes'      => 60,
@@ -141,6 +142,22 @@ class LGTKS_Settings {
 		$all = array_merge( self::all(), $values );
 		update_option( self::OPTION, $all );
 		self::$cache = null;
+	}
+
+	/** First name from a full name, honouring the configured order (eVardia: ΕΠΩΝΥΜΟ ΟΝΟΜΑ). */
+	public static function first_name( $full ) {
+		$parts = preg_split( '/\s+/u', trim( (string) $full ) );
+		if ( ! $parts || '' === $parts[0] ) {
+			return (string) $full;
+		}
+		if ( count( $parts ) === 1 ) {
+			return $parts[0];
+		}
+		if ( 'first_last' === self::get( 'name_order', 'last_first' ) ) {
+			return $parts[0];
+		}
+		// last_first: surname first; the first name is the second token (compound surnames are rare).
+		return $parts[1];
 	}
 
 	/* ---------- time: the plugin always works in Greek time, independent of the WP setting ---------- */

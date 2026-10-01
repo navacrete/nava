@@ -548,6 +548,7 @@ class LGTKS_Admin {
 			$list[] = '<strong>' . $yy . ':</strong> ' . ( $hh ? esc_html( implode( ' · ', array_map( function ( $d, $n ) { return date( 'd/m', strtotime( $d ) ) . ' ' . $n; }, array_keys( $hh ), $hh ) ) ) : '—' );
 		}
 		echo '<tr><th>Αυτόματο ημερολόγιο</th><td><p class="description">' . implode( '</p><p class="description">', $list ) . '</p></td></tr>';
+		self::select( 'name_order', 'Σειρά ονόματος', array( 'last_first' => 'ΕΠΩΝΥΜΟ ΟΝΟΜΑ (όπως στο eVardia)', 'first_last' => 'ΟΝΟΜΑ ΕΠΩΝΥΜΟ' ), 'Για να βγαίνει σωστά το {first_name} στα μηνύματα («Γεια σου Μαρία»).' );
 		self::text( 'timezone', 'Ζώνη ώρας', 'Το plugin δουλεύει πάντα σε αυτή τη ζώνη (προεπιλογή <code>Europe/Athens</code>, με αυτόματη θερινή/χειμερινή ώρα), ανεξάρτητα από τη ρύθμιση του WordPress. Τρέχουσα ώρα plugin: <strong>' . esc_html( LGTKS_Settings::now( 'd/m/Y H:i' ) ) . '</strong>.' );
 		self::text( 'country_prefix', 'Κωδικός χώρας', 'Προστίθεται σε κινητά 10 ψηφίων (69…). Ελλάδα = 30.', 'text', 'style="width:90px"' );
 		echo '</tbody></table></div>';
