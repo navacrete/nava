@@ -168,6 +168,7 @@ class LGTKS_Checker {
 				}
 			}
 			$summary['double'] = self::check_double_clockins( $day );
+			$summary['batch']  = self::flush_punch_queue();
 			$summary['digest'] = self::run_digest( $rows );
 		} finally {
 			delete_transient( 'lgtks_running' );
@@ -240,6 +241,36 @@ class LGTKS_Checker {
 			}
 		}
 		return $to_emp ? $ok_any : $mgr_sent;
+	}
+
+	/** Batch mode: send the queued punches as one email once the oldest is older than N minutes. */
+	public static function flush_punch_queue( $force = false ) {
+		$q = get_option( 'lgt_ks_punch_queue', array() );
+		if ( ! is_array( $q ) || ! $q ) {
+			return 0;
+		}
+		$wait = max( 5, (int) LGTKS_Settings::get( 'clockin_batch_minutes', 60 ) );
+		if ( ! $force && time() - (int) $q[0]['queued'] < $wait * 60 ) {
+			return 0;
+		}
+		$to = LGTKS_Settings::clockin_emails();
+		update_option( 'lgt_ks_punch_queue', array(), false );
+		if ( ! $to ) {
+			return 0;
+		}
+		$lines = array();
+		foreach ( $q as $it ) {
+			$lines[] = '• ' . $it['time'] . ' ' . $it['name'] . ' – ' . $it['kind'] . ( $it['start'] ? ' (βάρδια ' . $it['start'] . ( $it['delay'] ? ', ' . $it['delay'] : '' ) . ')' : ' (χωρίς βάρδια)' );
+		}
+		$subj = sprintf( 'Χτυπήματα κάρτας %s–%s: %d', $q[0]['at'], end( $q )['at'], count( $q ) );
+		$body = 'Χτυπήματα κάρτας – ' . LGTKS_Settings::now( 'd/m/Y' ) . "\n\n" . implode( "\n", $lines ) . "\n\n" . (string) LGTKS_Settings::get( 'company_name' );
+		$sent = 0;
+		foreach ( $to as $addr ) {
+			$ok = wp_mail( $addr, $subj, $body );
+			LGTKS_DB::add_notification( 0, LGTKS_Settings::now( 'Y-m-d' ), 1, 'punch_email', $addr, $subj, $ok ? 'sent' : 'failed', $ok ? 'wp_mail OK' : 'wp_mail απέτυχε' );
+			$sent += $ok ? 1 : 0;
+		}
+		return $sent;
 	}
 
 	/**
@@ -333,8 +364,10 @@ class LGTKS_Checker {
 			}
 			$ptime = substr( $p['punched_at'], 11, 5 );
 			$delay = '';
+			$late  = 0;
 			if ( 'in' === $p['kind'] && '' !== $start ) {
 				$diff  = (int) round( ( strtotime( $day . ' ' . $ptime ) - strtotime( $day . ' ' . $start ) ) / 60 );
+				$late  = $diff;
 				$delay = $diff > 0 ? '+' . $diff . '′ καθυστέρηση' : ( $diff < 0 ? abs( $diff ) . '′ νωρίτερα' : 'στην ώρα του' );
 			}
 			$items[] = array(
@@ -343,11 +376,42 @@ class LGTKS_Checker {
 				'kind'  => 'in' === $p['kind'] ? 'Προσέλευση' : 'Αποχώρηση',
 				'start' => $start,
 				'delay' => $delay,
+				'late'  => $late,
 				'src'   => $p['source'],
+			);
+		}
+		$mode = (string) LGTKS_Settings::get( 'clockin_email_mode', 'exceptions' );
+		if ( 'exceptions' === $mode ) {
+			$thr   = (int) LGTKS_Settings::get( 'clockin_late_threshold', 15 );
+			$items = array_values(
+				array_filter(
+					$items,
+					function ( $it ) use ( $thr ) {
+						if ( 'Προσέλευση' !== $it['kind'] ) {
+							return false; // clock-outs are never exceptions here
+						}
+						if ( '' === $it['start'] ) {
+							$it['note'] = 'χωρίς βάρδια στο eVardia σήμερα';
+							return true; // punched without a scheduled shift
+						}
+						return (int) $it['late'] > $thr;
+					}
+				)
 			);
 		}
 		if ( ! $items ) {
 			return 0;
+		}
+		if ( 'batch' === $mode ) {
+			$q = get_option( 'lgt_ks_punch_queue', array() );
+			if ( ! is_array( $q ) ) {
+				$q = array();
+			}
+			foreach ( $items as $it ) {
+				$q[] = array( 'at' => LGTKS_Settings::now( 'H:i' ), 'name' => $it['e']['name'], 'kind' => $it['kind'], 'time' => $it['time'], 'start' => $it['start'], 'delay' => $it['delay'], 'queued' => time() );
+			}
+			update_option( 'lgt_ks_punch_queue', $q, false );
+			return 0; // flushed by flush_punch_queue() from run()
 		}
 		$company = (string) LGTKS_Settings::get( 'company_name' );
 		$sent    = 0;
@@ -377,6 +441,9 @@ class LGTKS_Checker {
 				'{company}'    => $company,
 			);
 			$subj = strtr( (string) LGTKS_Settings::get( 'clockin_email_subject' ), $vars );
+			if ( 'exceptions' === $mode ) {
+				$subj = ( '' === $it['start'] ? 'Χτύπημα χωρίς βάρδια: ' : 'Καθυστερημένη προσέλευση: ' ) . $it['e']['name'] . ' ' . $it['time'] . ( $it['delay'] ? ' (' . $it['delay'] . ')' : '' );
+			}
 			$body = $it['kind'] . ' κάρτας εργασίας' . "\n\n" . 'Εργαζόμενος: ' . $it['e']['name'] . "\n" . 'Ώρα χτυπήματος: ' . $it['time'] . ' (' . LGTKS_Settings::now( 'd/m/Y' ) . ")\n" . ( $it['start'] ? 'Ώρα βάρδιας: ' . $it['start'] . "\n" : '' ) . ( $it['delay'] ? 'Καθυστέρηση: ' . $it['delay'] . "\n" : '' ) . ( $it['e']['external_id'] ? 'ΑΦΜ/Κωδικός: ' . $it['e']['external_id'] . "\n" : '' ) . 'Πηγή: ' . ( 'evardia' === $it['src'] ? 'eVardia' : $it['src'] ) . "\n\n" . $company;
 			foreach ( $to as $addr ) {
 				$ok = wp_mail( $addr, $subj, $body );

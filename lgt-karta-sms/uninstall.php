@@ -28,4 +28,5 @@ delete_option( 'lgt_ks_evardia_day' );
 delete_option( 'lgt_ks_http_audit' );
 delete_option( 'lgt_ks_evardia_roster' );
 delete_option( 'lgt_ks_digest_sent' );
+delete_option( 'lgt_ks_punch_queue' );
 delete_transient( 'lgtks_evardia_roster_fresh' );
