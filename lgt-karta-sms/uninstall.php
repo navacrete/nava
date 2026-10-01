@@ -25,3 +25,4 @@ delete_transient( 'lgtks_weblogin_cookies' );
 delete_transient( 'lgtks_evardia_cookies' );
 delete_transient( 'lgtks_evardia_page' );
 delete_option( 'lgt_ks_evardia_day' );
+delete_option( 'lgt_ks_http_audit' );

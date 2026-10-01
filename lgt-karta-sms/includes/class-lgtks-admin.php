@@ -569,6 +569,17 @@ class LGTKS_Admin {
 		echo '<div class="lgtks-source" data-s="manual"><p class="description">Τα χτυπήματα σημειώνονται μόνο με το χέρι από τον πίνακα «Σήμερα». Το SMS στέλνεται σε όσους δεν έχουν σημειωθεί μέχρι το όριο.</p></div>';
 		echo '</div>';
 
+		echo '<div class="lgtks-section"><h2>Μόνο ανάγνωση από το eVardia (φρουρός)</h2>';
+		echo '<p>Το plugin <strong>δεν μπορεί</strong> να αλλάξει τίποτα στο eVardia. Ένας φρουρός σε επίπεδο HTTP του WordPress ελέγχει κάθε αίτημα προς τους διακομιστές: <code>' . esc_html( implode( ', ', LGTKS_Guard::hosts() ) ) . '</code>. Επιτρέπονται μόνο: <strong>GET</strong> στη σελίδα «Επιλεκτική αποστολή», στην αρχική και στη σελίδα σύνδεσης, και <strong>ένα POST</strong>, αυτό της φόρμας σύνδεσης με όνομα χρήστη/κωδικό. Κάθε άλλο αίτημα (οποιοδήποτε POST προς αποστολή, διαγραφή, ρυθμίσεις κ.λπ.) αποκλείεται πριν φύγει από τον server και καταγράφεται ως σφάλμα, ακόμη κι αν προερχόταν από bug του plugin. Το κουμπί «Δοκιμή πηγής» και ο συγχρονισμός χρησιμοποιούν αποκλειστικά αυτά.</p>';
+		$trail = LGTKS_Guard::trail();
+		echo '<details><summary>Αρχείο ελέγχου: τα τελευταία ' . count( $trail ) . ' αιτήματα προς το eVardia</summary><table class="widefat striped" style="margin-top:8px"><thead><tr><th>Πότε</th><th>Μέθοδος</th><th>Σελίδα</th><th>Αποτέλεσμα</th><th>HTTP</th></tr></thead><tbody>';
+		foreach ( array_slice( $trail, 0, 60 ) as $a ) {
+			echo '<tr><td>' . esc_html( $a['at'] ) . '</td><td>' . esc_html( $a['method'] ) . '</td><td><code>' . esc_html( $a['path'] ) . '</code></td><td>' . ( strpos( $a['result'], 'BLOCKED' ) === 0 ? '<span class="lgtks-status due">' . esc_html( $a['result'] ) . '</span>' : esc_html( $a['result'] ) ) . '</td><td>' . esc_html( $a['status'] ) . '</td></tr>';
+		}
+		if ( ! $trail ) {
+			echo '<tr><td colspan="5">Κανένα αίτημα ακόμη.</td></tr>';
+		}
+		echo '</tbody></table></details></div>';
 		echo '<div class="lgtks-section"><h2>Αξιοπιστία ελέγχου</h2>';
 		echo '<p>Ο έλεγχος τρέχει κάθε 5 λεπτά με το WP-Cron, που όμως εκτελείται μόνο όταν έχει επισκέψεις το site. Για να είναι σίγουρο, βάλτε στο hosting (cPanel → Cron Jobs) ή στο cron-job.org να καλεί κάθε 5 λεπτά αυτό το URL:</p>';
 		echo '<p><code class="lgtks-url">' . esc_html( $cronurl ) . '</code></p>';

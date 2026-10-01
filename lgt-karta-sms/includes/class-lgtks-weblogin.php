@@ -156,6 +156,9 @@ class LGTKS_WebLogin {
 			}
 		}
 		// 2. POST credentials (do not follow redirects: we want the Set-Cookie of this response).
+		// The read-only guard permits exactly this one POST, to this form action, and nothing else.
+		LGTKS_Guard::$login_post_allowed = true;
+		LGTKS_Guard::$login_post_action  = $action;
 		$resp = wp_remote_post(
 			$action,
 			array(
@@ -167,6 +170,8 @@ class LGTKS_WebLogin {
 				'headers'     => self::headers( array( 'Referer' => $login_url, 'Origin' => preg_replace( '#^(https?://[^/]+).*$#', '$1', $action ) ) ),
 			)
 		);
+		LGTKS_Guard::$login_post_allowed = false;
+		LGTKS_Guard::$login_post_action  = '';
 		if ( is_wp_error( $resp ) ) {
 			return $resp;
 		}
