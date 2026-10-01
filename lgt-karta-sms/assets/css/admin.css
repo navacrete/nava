@@ -1,0 +1,16 @@
+.lgtks-wrap .lgtks-cards{display:flex;gap:12px;flex-wrap:wrap;margin:12px 0}
+.lgtks-wrap .lgtks-card{background:#fff;border:1px solid #c3c4c7;border-radius:4px;padding:12px 16px;min-width:200px;flex:1}
+.lgtks-wrap .lgtks-card h3{margin:0 0 6px;font-size:13px;color:#646970;text-transform:uppercase}
+.lgtks-wrap .lgtks-card .big{font-size:22px;font-weight:600}
+.lgtks-status{display:inline-block;padding:2px 8px;border-radius:10px;font-size:12px;font-weight:600}
+.lgtks-status.present{background:#d1f0d9;color:#0a5c22}
+.lgtks-status.due{background:#f8d7da;color:#842029}
+.lgtks-status.not_yet{background:#fff3cd;color:#664d03}
+.lgtks-status.off,.lgtks-status.holiday{background:#e9ecef;color:#495057}
+.lgtks-status.late_window_passed{background:#e2d9f3;color:#3d2a6b}
+.lgtks-wrap table.schedule input[type=time]{width:100px}
+.lgtks-wrap .lgtks-section{background:#fff;border:1px solid #c3c4c7;padding:4px 20px 16px;margin:16px 0}
+.lgtks-wrap code.lgtks-url{display:inline-block;padding:4px 8px;background:#f0f0f1;user-select:all}
+.lgtks-wrap .lgtks-provider,.lgtks-wrap .lgtks-source{display:none}
+.lgtks-wrap .lgtks-provider.on,.lgtks-wrap .lgtks-source.on{display:block}
+.lgtks-wrap pre.lgtks-resp{max-height:300px;overflow:auto;background:#f6f7f7;padding:8px;font-size:12px}
