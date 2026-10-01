@@ -65,6 +65,7 @@ class LGTKS_Source {
 		$index = self::employee_index();
 		$out   = array( 'records' => count( $records ), 'matched' => 0, 'new' => 0, 'unmatched' => array() );
 		$in_v  = trim( (string) LGTKS_Settings::get( 'source_kind_in_value' ) );
+		$newp  = array();
 		foreach ( $records as $r ) {
 			$who = isset( $r['employee'] ) ? trim( (string) $r['employee'] ) : '';
 			$ts  = self::parse_datetime( $r['datetime'] ?? '' );
@@ -85,9 +86,15 @@ class LGTKS_Source {
 			$out['matched']++;
 			if ( LGTKS_DB::add_punch( $emp_id, $ts, $kind, $source, $who ) ) {
 				$out['new']++;
+				if ( substr( $ts, 0, 10 ) === LGTKS_Settings::now( 'Y-m-d' ) ) {
+					$newp[] = array( 'employee_id' => $emp_id, 'punched_at' => $ts, 'kind' => $kind, 'source' => $source );
+				}
 			}
 		}
 		$out['unmatched'] = array_keys( $out['unmatched'] );
+		if ( $newp ) {
+			$out['punch_emails'] = LGTKS_Checker::email_new_punches( $newp );
+		}
 		return $out;
 	}
 

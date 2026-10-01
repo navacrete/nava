@@ -24,6 +24,10 @@ class LGTKS_Settings {
 			'manager_email'            => '',
 			'manager_channel'          => 'both',
 			'manager_per_employee'     => 0,
+			'clockin_email'            => 1,
+			'clockin_email_kinds'      => 'in',
+			'clockin_email_to'         => '',
+			'clockin_email_subject'    => 'Χτύπημα κάρτας: {name} {punch_time} ({kind})',
 			'manager_digest_times'     => '11:00',
 			'manager_digest_all_ok'    => 0,
 			'manager_digest_sms'       => 'Κάρτα εργασίας {now}: {count} χωρίς χτύπημα: {list}',
@@ -208,6 +212,13 @@ class LGTKS_Settings {
 	public static function manager_emails() {
 		$list = preg_split( '/[\s,;]+/', (string) self::get( 'manager_email' ) );
 		return array_values( array_filter( array_map( 'trim', $list ), 'is_email' ) );
+	}
+
+	/** Recipients of the per-punch email: own list or the manager emails. */
+	public static function clockin_emails() {
+		$list = preg_split( '/[\s,;]+/', (string) self::get( 'clockin_email_to' ) );
+		$list = array_values( array_filter( array_map( 'trim', $list ), 'is_email' ) );
+		return $list ? $list : self::manager_emails();
 	}
 
 	public static function manager_channel() {

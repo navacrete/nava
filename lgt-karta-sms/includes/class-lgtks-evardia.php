@@ -325,6 +325,7 @@ class LGTKS_Evardia {
 		$auto  = (bool) LGTKS_Settings::get( 'ev_auto_create', 1 );
 		$sum   = array( 'records' => count( $rows ), 'matched' => 0, 'created' => 0, 'new' => 0, 'inactive_skipped' => 0, 'deactivated' => 0, 'unmatched' => array() );
 		$day   = array();
+		$newp  = array();
 		// Roster: employees not marked «Ενεργός = Ναι» in eVardia are ignored completely.
 		$roster = self::sync_roster();
 		if ( is_wp_error( $roster ) ) {
@@ -386,9 +387,11 @@ class LGTKS_Evardia {
 			foreach ( $r['shifts'] as $s ) {
 				if ( '' !== $s['in'] && LGTKS_DB::add_punch( $emp_id, $today . ' ' . $s['in'] . ':00', 'in', 'evardia', $r['afm'] ) ) {
 					$sum['new']++;
+					$newp[] = array( 'employee_id' => $emp_id, 'punched_at' => $today . ' ' . $s['in'] . ':00', 'kind' => 'in', 'source' => 'evardia' );
 				}
 				if ( '' !== $s['out'] && LGTKS_DB::add_punch( $emp_id, $today . ' ' . $s['out'] . ':00', 'out', 'evardia', $r['afm'] ) ) {
 					$sum['new']++;
+					$newp[] = array( 'employee_id' => $emp_id, 'punched_at' => $today . ' ' . $s['out'] . ':00', 'kind' => 'out', 'source' => 'evardia' );
 				}
 			}
 		}
@@ -401,6 +404,9 @@ class LGTKS_Evardia {
 			}
 		}
 		update_option( self::DAY_OPTION, array( 'day' => $today, 'fetched_at' => LGTKS_Settings::now( 'Y-m-d H:i:s' ), 'rows' => $day ), false );
+		if ( $newp ) {
+			$sum['punch_emails'] = LGTKS_Checker::email_new_punches( $newp );
+		}
 		update_option(
 			'lgt_ks_last_sync',
 			array(

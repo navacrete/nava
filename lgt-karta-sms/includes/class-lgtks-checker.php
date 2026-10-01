@@ -241,6 +241,96 @@ class LGTKS_Checker {
 		return $to_emp ? $ok_any : $mgr_sent;
 	}
 
+	/**
+	 * Email the managers about new punches. $punches = list of {employee_id, punched_at, kind, source}.
+	 * One email per punch; above 5 punches in one batch a single combined email is sent instead.
+	 */
+	public static function email_new_punches( array $punches ) {
+		if ( ! LGTKS_Settings::get( 'clockin_email' ) || ! $punches ) {
+			return 0;
+		}
+		$kinds = (string) LGTKS_Settings::get( 'clockin_email_kinds', 'in' );
+		$to    = LGTKS_Settings::clockin_emails();
+		if ( ! $to ) {
+			return 0;
+		}
+		$day  = LGTKS_Settings::now( 'Y-m-d' );
+		$ev   = ( 'evardia' === LGTKS_Settings::get( 'source_type' ) ) ? LGTKS_Evardia::today_rows( $day ) : array();
+		$tz   = LGTKS_Settings::tz();
+		$now  = new DateTime( 'now', $tz );
+		$items = array();
+		foreach ( $punches as $p ) {
+			if ( 'in' === $kinds && 'in' !== $p['kind'] ) {
+				continue;
+			}
+			$e = LGTKS_DB::employee( $p['employee_id'] );
+			if ( ! $e || ! in_array( $e['notify_target'], array( 'both', 'manager' ), true ) ) {
+				continue; // excluded from manager notifications
+			}
+			$start = '';
+			if ( isset( $ev[ $e['id'] ] ) ) {
+				$sh    = LGTKS_Evardia::relevant_shift( $ev[ $e['id'] ], new DateTime( $p['punched_at'], $tz ) );
+				$start = $sh ? $sh['start'] : '';
+			} else {
+				$dow   = (int) $now->format( 'N' );
+				$start = isset( $e['schedule'][ $dow ] ) ? $e['schedule'][ $dow ] : '';
+			}
+			$ptime = substr( $p['punched_at'], 11, 5 );
+			$delay = '';
+			if ( 'in' === $p['kind'] && '' !== $start ) {
+				$diff  = (int) round( ( strtotime( $day . ' ' . $ptime ) - strtotime( $day . ' ' . $start ) ) / 60 );
+				$delay = $diff > 0 ? '+' . $diff . '′ καθυστέρηση' : ( $diff < 0 ? abs( $diff ) . '′ νωρίτερα' : 'στην ώρα του' );
+			}
+			$items[] = array(
+				'e'     => $e,
+				'time'  => $ptime,
+				'kind'  => 'in' === $p['kind'] ? 'Προσέλευση' : 'Αποχώρηση',
+				'start' => $start,
+				'delay' => $delay,
+				'src'   => $p['source'],
+			);
+		}
+		if ( ! $items ) {
+			return 0;
+		}
+		$company = (string) LGTKS_Settings::get( 'company_name' );
+		$sent    = 0;
+		if ( count( $items ) > 5 ) {
+			$lines = array();
+			foreach ( $items as $it ) {
+				$lines[] = '• ' . $it['e']['name'] . ' – ' . $it['kind'] . ' ' . $it['time'] . ( $it['start'] ? ' (βάρδια ' . $it['start'] . ( $it['delay'] ? ', ' . $it['delay'] : '' ) . ')' : '' );
+			}
+			$subj = sprintf( 'Χτυπήματα κάρτας: %d νέα (%s)', count( $items ), LGTKS_Settings::now( 'H:i' ) );
+			$body = 'Νέα χτυπήματα κάρτας – ' . LGTKS_Settings::now( 'd/m/Y H:i' ) . "\n\n" . implode( "\n", $lines ) . "\n\n" . $company;
+			foreach ( $to as $addr ) {
+				$ok = wp_mail( $addr, $subj, $body );
+				LGTKS_DB::add_notification( 0, $day, 1, 'punch_email', $addr, $subj, $ok ? 'sent' : 'failed', $ok ? 'wp_mail OK' : 'wp_mail απέτυχε' );
+				$sent += $ok ? 1 : 0;
+			}
+			return $sent;
+		}
+		foreach ( $items as $it ) {
+			$vars = array(
+				'{name}'       => $it['e']['name'],
+				'{first_name}' => preg_split( '/\s+/', trim( $it['e']['name'] ) )[0],
+				'{punch_time}' => $it['time'],
+				'{kind}'       => $it['kind'],
+				'{time}'       => $it['start'],
+				'{delay}'      => $it['delay'],
+				'{date}'       => LGTKS_Settings::now( 'd/m/Y' ),
+				'{company}'    => $company,
+			);
+			$subj = strtr( (string) LGTKS_Settings::get( 'clockin_email_subject' ), $vars );
+			$body = $it['kind'] . ' κάρτας εργασίας' . "\n\n" . 'Εργαζόμενος: ' . $it['e']['name'] . "\n" . 'Ώρα χτυπήματος: ' . $it['time'] . ' (' . LGTKS_Settings::now( 'd/m/Y' ) . ")\n" . ( $it['start'] ? 'Ώρα βάρδιας: ' . $it['start'] . "\n" : '' ) . ( $it['delay'] ? 'Καθυστέρηση: ' . $it['delay'] . "\n" : '' ) . ( $it['e']['external_id'] ? 'ΑΦΜ/Κωδικός: ' . $it['e']['external_id'] . "\n" : '' ) . 'Πηγή: ' . ( 'evardia' === $it['src'] ? 'eVardia' : $it['src'] ) . "\n\n" . $company;
+			foreach ( $to as $addr ) {
+				$ok = wp_mail( $addr, $subj, $body );
+				LGTKS_DB::add_notification( $it['e']['id'], $day, 1, 'punch_email', $addr, $subj, $ok ? 'sent' : 'failed', $ok ? 'wp_mail OK' : 'wp_mail απέτυχε' );
+				$sent += $ok ? 1 : 0;
+			}
+		}
+		return $sent;
+	}
+
 	/** Immediate manager alert for a long delay (round 3, once per day per employee). */
 	public static function escalate( array $row ) {
 		$e    = $row['employee'];

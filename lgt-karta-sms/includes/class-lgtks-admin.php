@@ -117,7 +117,7 @@ class LGTKS_Admin {
 	}
 
 	private static function notif_channel_label( $c ) {
-		$map = array( 'sms' => 'SMS', 'email' => 'Email', 'manager' => 'Υπεύθυνος (SMS)', 'manager_email' => 'Υπεύθυνος (Email)', 'manager_summary' => 'Υπεύθυνοι – συνολική κατάσταση (email)', 'manager_digest' => 'Υπεύθυνοι – συγκεντρωτικό SMS' );
+		$map = array( 'sms' => 'SMS', 'email' => 'Email', 'manager' => 'Υπεύθυνος (SMS)', 'manager_email' => 'Υπεύθυνος (Email)', 'manager_summary' => 'Υπεύθυνοι – συνολική κατάσταση (email)', 'manager_digest' => 'Υπεύθυνοι – συγκεντρωτικό SMS', 'punch_email' => 'Email χτυπήματος' );
 		return isset( $map[ $c ] ) ? $map[ $c ] : $c;
 	}
 
@@ -267,7 +267,10 @@ class LGTKS_Admin {
 	public static function handle_manual_punch() {
 		self::guard( 'manual_punch' );
 		$id = isset( $_POST['employee_id'] ) ? (int) $_POST['employee_id'] : 0;
-		LGTKS_DB::add_punch( $id, LGTKS_Settings::now( 'Y-m-d H:i:s' ), 'in', 'manual', 'admin:' . get_current_user_id() );
+		$ts = LGTKS_Settings::now( 'Y-m-d H:i:s' );
+		if ( LGTKS_DB::add_punch( $id, $ts, 'in', 'manual', 'admin:' . get_current_user_id() ) ) {
+			LGTKS_Checker::email_new_punches( array( array( 'employee_id' => $id, 'punched_at' => $ts, 'kind' => 'in', 'source' => 'χειροκίνητα' ) ) );
+		}
 		self::back( '', 'Καταχωρήθηκε χειροκίνητο χτύπημα.' );
 	}
 
@@ -512,6 +515,10 @@ class LGTKS_Admin {
 		self::area( 'manager_digest_sms', 'Κείμενο συγκεντρωτικού SMS', 'Μεταβλητές: {now} {date} {count} {list} {company}. Το {list} γίνεται π.χ. «ΠΑΠΑΔΟΠΟΥΛΟΥ Μ. (09:00, +45\')».', 2 );
 		self::text( 'manager_escalation_minutes', 'Άμεση κλιμάκωση μετά από (λεπτά)', 'Αν ένας εργαζόμενος ξεπεράσει τόσα λεπτά καθυστέρησης χωρίς χτύπημα, ο υπεύθυνος ειδοποιείται <strong>αμέσως</strong>, χωρίς να περιμένει τη συγκεντρωτική (μία φορά ανά εργαζόμενο ανά ημέρα). 0 = απενεργοποίηση.', 'number', 'min="0" max="600" style="width:90px"' );
 		self::area( 'manager_escalation_template', 'Μήνυμα κλιμάκωσης', 'Μεταβλητές: {name} {first_name} {time} {minutes} {date} {now}.', 2 );
+		self::check( 'clockin_email', 'Email σε κάθε χτύπημα κάρτας', 'Κάθε φορά που καταγράφεται χτύπημα, στέλνεται email με όνομα, ώρα, βάρδια και καθυστέρηση. Εξαιρούνται οι εργαζόμενοι που έχουν «όχι ο υπεύθυνος». Αν σε έναν συγχρονισμό βρεθούν πάνω από 5 νέα χτυπήματα μαζί (π.χ. μετά από διακοπή), στέλνεται ένα συγκεντρωτικό email.' );
+		self::select( 'clockin_email_kinds', 'Για ποια χτυπήματα', array( 'in' => 'Μόνο προσελεύσεις', 'all' => 'Προσελεύσεις και αποχωρήσεις' ) );
+		self::area( 'clockin_email_to', 'Παραλήπτες email χτυπημάτων', 'Ένα ανά γραμμή ή με κόμμα. Κενό = τα «Email υπευθύνων».', 2 );
+		self::text( 'clockin_email_subject', 'Θέμα email χτυπήματος', 'Μεταβλητές: {name} {first_name} {punch_time} {kind} {time} (βάρδια) {delay} {date} {company}.' );
 		self::check( 'manager_per_employee', 'Ξεχωριστή ειδοποίηση ανά εργαζόμενο', 'Να ειδοποιείται ο υπεύθυνος και τη στιγμή που ειδοποιείται κάθε εργαζόμενος (ένα μήνυμα ανά εργαζόμενο). <strong>Κλειστό από προεπιλογή</strong>: αρκούν η συγκεντρωτική και η κλιμάκωση.' );
 		self::area( 'manager_mobiles', 'Κινητά υπευθύνων', 'Ένα ανά γραμμή ή με κόμμα (για SMS).', 2 );
 		self::area( 'manager_email', 'Email υπευθύνων', 'Ένα ανά γραμμή ή με κόμμα. Χρησιμοποιούνται για τις αυτόματες ειδοποιήσεις (αν το κανάλι περιλαμβάνει email) και για το κουμπί «Email στους υπευθύνους».', 2 );
@@ -674,14 +681,14 @@ class LGTKS_Admin {
 			if ( in_array( $k, array( 'webhook_token', 'cron_token' ), true ) ) {
 				continue;
 			}
-			if ( is_int( $d ) && in_array( $k, array( 'enabled', 'delete_on_uninstall', 'ev_use_schedule', 'ev_auto_create', 'manager_per_employee', 'manager_digest_all_ok', 'holidays_auto', 'holiday_clean_monday', 'holiday_holy_spirit', 'holiday_good_friday' ), true ) ) {
+			if ( is_int( $d ) && in_array( $k, array( 'enabled', 'delete_on_uninstall', 'ev_use_schedule', 'ev_auto_create', 'manager_per_employee', 'manager_digest_all_ok', 'clockin_email', 'holidays_auto', 'holiday_clean_monday', 'holiday_holy_spirit', 'holiday_good_friday' ), true ) ) {
 				$out[ $k ] = empty( $in[ $k ] ) ? 0 : 1;
 			} elseif ( is_int( $d ) ) {
 				$out[ $k ] = isset( $in[ $k ] ) ? max( 0, (int) $in[ $k ] ) : $d;
 			} elseif ( isset( $in[ $k ] ) ) {
 				$v = (string) $in[ $k ];
 				// Keep headers/bodies/templates raw (they may contain JSON, quotes, {vars}); only strip tags.
-				$out[ $k ] = in_array( $k, array( 'generic_headers', 'generic_body', 'source_headers', 'source_body', 'message_template', 'manager_message_template', 'holidays', 'manager_mobiles', 'wl_extra_fields', 'wl_password', 'wl_username', 'ev_password', 'ev_username', 'manager_email', 'manager_digest_sms', 'manager_escalation_template' ), true ) ? wp_strip_all_tags( $v ) : sanitize_text_field( $v );
+				$out[ $k ] = in_array( $k, array( 'generic_headers', 'generic_body', 'source_headers', 'source_body', 'message_template', 'manager_message_template', 'holidays', 'manager_mobiles', 'wl_extra_fields', 'wl_password', 'wl_username', 'ev_password', 'ev_username', 'manager_email', 'manager_digest_sms', 'manager_escalation_template', 'clockin_email_to' ), true ) ? wp_strip_all_tags( $v ) : sanitize_text_field( $v );
 			}
 		}
 		if ( ! empty( $out['sms_sender'] ) ) {
