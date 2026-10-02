@@ -40,6 +40,11 @@ class LGTKS_Install {
 		// 1.1: notify_channel 'none' meant "excluded"; now that lives in notify_target.
 		$wpdb->query( "UPDATE {$t} SET notify_target = 'none', notify_channel = 'sms' WHERE notify_channel = 'none'" ); // phpcs:ignore WordPress.DB
 		$wpdb->query( "UPDATE {$t} SET notify_target = 'both' WHERE notify_target IS NULL OR notify_target = ''" ); // phpcs:ignore WordPress.DB
+		// 1.15: policy change – the system informs the employee only; manager notifications off.
+		$s = get_option( LGTKS_Settings::OPTION, array() );
+		if ( is_array( $s ) && ! array_key_exists( 'managers_enabled', $s ) ) {
+			LGTKS_Settings::update( array( 'managers_enabled' => 0, 'clockin_email' => 0 ) );
+		}
 	}
 
 	public static function add_caps() {

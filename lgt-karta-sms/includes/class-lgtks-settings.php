@@ -22,6 +22,7 @@ class LGTKS_Settings {
 			'manager_mobiles'          => '',
 			'manager_message_template' => '{name} δεν έχει χτυπήσει κάρτα ({date}, βάρδια {time}, καθυστέρηση {minutes} λεπτά).',
 			'manager_email'            => '',
+			'managers_enabled'         => 0,
 			'manager_channel'          => 'both',
 			'manager_per_employee'     => 0,
 			'clockin_email'            => 1,
@@ -250,7 +251,15 @@ class LGTKS_Settings {
 		return $list ? $list : self::manager_emails();
 	}
 
+	/** Are manager/accounting notifications enabled at all? (Policy: employee-only by default.) */
+	public static function managers_enabled() {
+		return (bool) self::get( 'managers_enabled', 0 );
+	}
+
 	public static function manager_channel() {
+		if ( ! self::managers_enabled() ) {
+			return 'none';
+		}
 		$c = (string) self::get( 'manager_channel', 'both' );
 		return in_array( $c, array( 'both', 'sms', 'email', 'none' ), true ) ? $c : 'both';
 	}

@@ -165,7 +165,7 @@ class LGTKS_Checker {
 					}
 				}
 				// Escalation to the manager: still not clocked in after N minutes, once per day.
-				if ( $escal > 0 && in_array( $target, array( 'both', 'manager' ), true ) && (int) $r['late_min'] >= $escal && ! isset( $sent_rounds[3] ) ) {
+				if ( LGTKS_Settings::managers_enabled() && $escal > 0 && in_array( $target, array( 'both', 'manager' ), true ) && (int) $r['late_min'] >= $escal && ! isset( $sent_rounds[3] ) ) {
 					self::escalate( $r );
 					$summary['escalated'] = ( $summary['escalated'] ?? 0 ) + 1;
 				}
@@ -214,7 +214,7 @@ class LGTKS_Checker {
 			$target = 'both'; // manual "send now" overrides the exclusion
 		}
 		$to_emp = in_array( $target, array( 'both', 'employee' ), true );
-		$to_mgr = in_array( $target, array( 'both', 'manager' ), true );
+		$to_mgr = LGTKS_Settings::managers_enabled() && in_array( $target, array( 'both', 'manager' ), true );
 		$ok_any = false;
 		$res    = array( 'ok' => false, 'response' => $to_emp ? 'δεν στάλθηκε SMS (κανάλι: ' . $channel . ')' : 'ο εργαζόμενος δεν ειδοποιείται (μόνο υπεύθυνος)' );
 		if ( $to_emp && in_array( $channel, array( 'sms', 'both' ), true ) ) {
@@ -304,7 +304,7 @@ class LGTKS_Checker {
 
 	/** Batch mode: send the queued punches as one email once the oldest is older than N minutes. */
 	public static function flush_punch_queue( $force = false ) {
-		if ( self::$dry ) {
+		if ( self::$dry || ! LGTKS_Settings::managers_enabled() ) {
 			return 0;
 		}
 		$q = get_option( 'lgt_ks_punch_queue', array() );
@@ -343,8 +343,9 @@ class LGTKS_Checker {
 		if ( self::$dry || ! LGTKS_Settings::get( 'anomaly_email', 1 ) ) {
 			return 0;
 		}
-		$to = LGTKS_Settings::clockin_emails();
-		if ( ! $to ) {
+		$mgr = LGTKS_Settings::managers_enabled();
+		$to  = $mgr ? LGTKS_Settings::clockin_emails() : array();
+		if ( $mgr && ! $to ) {
 			return 0;
 		}
 		$ev   = ( 'evardia' === LGTKS_Settings::get( 'source_type' ) ) ? LGTKS_Evardia::today_rows( $day ) : array();
@@ -369,15 +370,30 @@ class LGTKS_Checker {
 				continue;
 			}
 			$e = LGTKS_DB::employee( $emp_id );
-			if ( ! $e || ! in_array( $e['notify_target'], array( 'both', 'manager' ), true ) ) {
+			if ( ! $e ) {
 				continue;
+			}
+			if ( $mgr && ! in_array( $e['notify_target'], array( 'both', 'manager' ), true ) ) {
+				continue;
+			}
+			if ( ! $mgr ) {
+				// Employee-only policy: warn the employee themself by email (if their channel includes email).
+				if ( ! in_array( $e['notify_target'], array( 'both', 'employee' ), true ) || ! in_array( $e['notify_channel'], array( 'email', 'both' ), true ) || ! is_email( trim( (string) $e['email'] ) ) ) {
+					continue;
+				}
+				$to = array( trim( (string) $e['email'] ) );
 			}
 			if ( LGTKS_DB::has_notification( $emp_id, $day, 'anomaly_email' ) ) {
 				continue;
 			}
 			$why  = $double ? 'Δεύτερη προσέλευση χωρίς ενδιάμεση αποχώρηση: ' . implode( ', ', $double ) : sprintf( '%d προσελεύσεις ενώ οι βάρδιες της ημέρας είναι %d', count( $ins ), $shifts );
-			$subj = 'Διπλή προσέλευση: ' . $e['name'] . ' (' . implode( ', ', $ins ) . ')';
-			$body = "Πιθανό διπλό χτύπημα προσέλευσης\n\nΕργαζόμενος: " . $e['name'] . "\nΗμερομηνία: " . LGTKS_Settings::fmt( 'd/m/Y', strtotime( $day ) ) . "\nΠροσελεύσεις: " . implode( ', ', $ins ) . "\n" . $why . "\n\nΕλέγξτε την εγγραφή στο eVardia / ΕΡΓΑΝΗ και διορθώστε αν χρειάζεται.\n\n" . (string) LGTKS_Settings::get( 'company_name' );
+			if ( $mgr ) {
+				$subj = 'Διπλή προσέλευση: ' . $e['name'] . ' (' . implode( ', ', $ins ) . ')';
+				$body = "Πιθανό διπλό χτύπημα προσέλευσης\n\nΕργαζόμενος: " . $e['name'] . "\nΗμερομηνία: " . LGTKS_Settings::fmt( 'd/m/Y', strtotime( $day ) ) . "\nΠροσελεύσεις: " . implode( ', ', $ins ) . "\n" . $why . "\n\nΕλέγξτε την εγγραφή στο eVardia / ΕΡΓΑΝΗ και διορθώστε αν χρειάζεται.\n\n" . (string) LGTKS_Settings::get( 'company_name' );
+			} else {
+				$subj = 'Προσοχή: διπλή προσέλευση στην κάρτα σου (' . implode( ', ', $ins ) . ')';
+				$body = 'Γεια σου ' . LGTKS_Settings::first_name( $e['name'] ) . ",\n\nσήμερα " . LGTKS_Settings::fmt( 'd/m/Y', strtotime( $day ) ) . ' καταγράφηκαν δύο χτυπήματα προσέλευσης στην κάρτα σου: ' . implode( ' και ', $ins ) . ".\n" . $why . ".\n\nΑν έγινε κατά λάθος, ενημέρωσε τον υπεύθυνό σου για να διορθωθεί.\n\n" . (string) LGTKS_Settings::get( 'company_name' );
+			}
 			foreach ( $to as $addr ) {
 				$ok = wp_mail( $addr, $subj, $body );
 				LGTKS_DB::add_notification( $emp_id, $day, 1, 'anomaly_email', $addr, $subj . ' – ' . $why, $ok ? 'sent' : 'failed', $ok ? 'wp_mail OK' : 'wp_mail απέτυχε' );
@@ -399,7 +415,7 @@ class LGTKS_Checker {
 			return 0;
 		}
 		self::email_receipts( $punches );
-		if ( ! LGTKS_Settings::get( 'clockin_email' ) ) {
+		if ( ! LGTKS_Settings::managers_enabled() || ! LGTKS_Settings::get( 'clockin_email' ) ) {
 			return 0;
 		}
 		$kinds = (string) LGTKS_Settings::get( 'clockin_email_kinds', 'in' );
@@ -559,7 +575,7 @@ class LGTKS_Checker {
 	 * clocked in yet. Sent once per time per day, only if someone is pending (unless 'all ok' is on).
 	 */
 	public static function run_digest( array $rows ) {
-		if ( self::$dry ) {
+		if ( self::$dry || ! LGTKS_Settings::managers_enabled() ) {
 			return null;
 		}
 		$times = LGTKS_Settings::digest_times();
@@ -634,6 +650,9 @@ class LGTKS_Checker {
 	 * @return array {sent:int, failed:int, due:int, error:string}
 	 */
 	public static function email_managers_summary( $tag = '', array $rows = null ) {
+		if ( ! LGTKS_Settings::managers_enabled() ) {
+			return array( 'sent' => 0, 'failed' => 0, 'due' => 0, 'error' => 'Οι ειδοποιήσεις υπευθύνων είναι απενεργοποιημένες (πολιτική: μόνο ο εργαζόμενος).' );
+		}
 		$emails = LGTKS_Settings::manager_emails();
 		if ( ! $emails ) {
 			return array( 'sent' => 0, 'failed' => 0, 'due' => 0, 'error' => 'Δεν έχουν οριστεί email υπευθύνων (Ρυθμίσεις → Email υπευθύνων).' );

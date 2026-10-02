@@ -185,7 +185,9 @@ class LGTKS_Admin {
 		if ( LGTKS_Source::is_pull( LGTKS_Settings::get( 'source_type' ) ) ) {
 			self::button_form( 'sync', 'Μόνο συγχρονισμός χτυπημάτων', 'button' );
 		}
-		self::button_form( 'notify_managers', 'Email στους υπευθύνους με τη σημερινή κατάσταση', 'button', array(), 'Αποστολή email με ποιος χτύπησε / δεν χτύπησε στους υπευθύνους;' );
+		if ( LGTKS_Settings::managers_enabled() ) {
+			self::button_form( 'notify_managers', 'Email στους υπευθύνους με τη σημερινή κατάσταση', 'button', array(), 'Αποστολή email με ποιος χτύπησε / δεν χτύπησε στους υπευθύνους;' );
+		}
 		echo '</p>';
 
 		echo '<table class="widefat striped"><thead><tr><th>Εργαζόμενος</th><th>Επικοινωνία</th><th>Βάρδια</th><th>Όριο</th><th>Κατάσταση</th><th>Χτύπημα</th><th>Ειδοποιήσεις</th><th>Ενέργειες</th></tr></thead><tbody>';
@@ -196,7 +198,7 @@ class LGTKS_Admin {
 			$e = $r['employee'];
 			echo '<tr>';
 			echo '<td><strong>' . esc_html( $e['name'] ) . '</strong>' . ( $e['external_id'] ? '<br><small>' . esc_html( $e['external_id'] ) . '</small>' : '' ) . ( ( in_array( $e['notify_target'], array( 'both', 'employee' ), true ) && ! LGTKS_Checker::has_contact( $e ) ) ? '<br><span class="lgtks-status due">λείπει κινητό/email</span> <a href="' . esc_url( self::url( 'employees', array( 'edit' => $e['id'] ) ) ) . '">συμπλήρωση</a>' : '' ) . '</td>';
-			echo '<td>' . esc_html( $e['mobile'] ) . ( $e['email'] ? '<br><small>' . esc_html( $e['email'] ) . '</small>' : '' ) . '<br><small style="color:#646970">' . esc_html( self::target_label( $e['notify_target'] ) . ( in_array( $e['notify_target'], array( 'both', 'employee' ), true ) ? ' · ' . self::channel_label( $e['notify_channel'] ) : '' ) ) . '</small></td>';
+			echo '<td>' . esc_html( $e['mobile'] ) . ( $e['email'] ? '<br><small>' . esc_html( $e['email'] ) . '</small>' : '' ) . '<br><small style="color:#646970">' . esc_html( ( LGTKS_Settings::managers_enabled() ? self::target_label( $e['notify_target'] ) : ( in_array( $e['notify_target'], array( 'both', 'employee' ), true ) ? 'Ειδοποιείται' : 'Δεν ειδοποιείται' ) ) . ( in_array( $e['notify_target'], array( 'both', 'employee' ), true ) ? ' · ' . self::channel_label( $e['notify_channel'] ) : '' ) ) . '</small></td>';
 			echo '<td>' . ( $r['start'] ? esc_html( $r['start'] ) : '—' ) . '</td>';
 			echo '<td>' . ( $r['deadline'] ? esc_html( $r['deadline'] ) : '—' ) . '</td>';
 			echo '<td><span class="lgtks-status ' . esc_attr( $r['status'] ) . '">' . esc_html( self::status_label( $r['status'] ) ) . '</span></td>';
@@ -206,7 +208,7 @@ class LGTKS_Admin {
 				$lbl   = array( 'sms' => 'SMS', 'email' => 'email', 'manager' => 'υπεύθ. SMS', 'manager_email' => 'υπεύθ. email' );
 				$sms[] = ( 'sent' === $n['status'] ? '✔' : '✖' ) . ' ' . ( $lbl[ $n['channel'] ] ?? $n['channel'] ) . ' ' . substr( $n['created_at'], 11, 5 );
 			}
-			if ( 'none' === $e['notify_target'] ) {
+			if ( 'none' === $e['notify_target'] || ( ! LGTKS_Settings::managers_enabled() && 'manager' === $e['notify_target'] ) ) {
 				echo '<td><span class="lgtks-status off">Εξαιρείται</span></td>';
 			} else {
 				echo '<td>' . ( $sms ? esc_html( implode( ', ', $sms ) ) : '—' ) . '</td>';
@@ -321,8 +323,13 @@ class LGTKS_Admin {
 		$f_mgr   = in_array( $tg, array( 'both', 'manager' ), true );
 		echo '<tr><th>Όταν δεν χτυπήσει κάρτα</th><td>';
 		echo '<p><label><input type="checkbox" name="notify_employee" value="1" ' . checked( $f_emp, true, false ) . '> <strong>Ειδοποιείται ο ίδιος ο εργαζόμενος</strong></label></p>';
-		echo '<p><label><input type="checkbox" name="notify_manager" value="1" ' . checked( $f_mgr, true, false ) . '> <strong>Ειδοποιείται ο υπεύθυνος γι’ αυτόν τον εργαζόμενο</strong></label></p>';
-		echo '<p class="description">Οι δύο επιλογές είναι ανεξάρτητες: π.χ. για τον διευθυντή αφήστε μόνο την πρώτη (ή καμία). Με καμία επιλεγμένη ο εργαζόμενος φαίνεται στον πίνακα «Σήμερα» αλλά δεν ειδοποιείται κανείς. Οι επιλογές αποθηκεύονται ανά εργαζόμενο και φαίνονται στη λίστα εξαιρέσεων παρακάτω.</p></td></tr>';
+		if ( LGTKS_Settings::managers_enabled() ) {
+			echo '<p><label><input type="checkbox" name="notify_manager" value="1" ' . checked( $f_mgr, true, false ) . '> <strong>Ειδοποιείται ο υπεύθυνος γι’ αυτόν τον εργαζόμενο</strong></label></p>';
+			echo '<p class="description">Οι δύο επιλογές είναι ανεξάρτητες: π.χ. για τον διευθυντή αφήστε μόνο την πρώτη (ή καμία). Με καμία επιλεγμένη ο εργαζόμενος φαίνεται στον πίνακα «Σήμερα» αλλά δεν ειδοποιείται κανείς.</p></td></tr>';
+		} else {
+			echo '<input type="hidden" name="notify_manager" value="' . ( $f_mgr ? '1' : '' ) . '">';
+			echo '<p class="description">Ξετσεκαρισμένο = ο εργαζόμενος εξαιρείται από κάθε ειδοποίηση (φαίνεται μόνο στον πίνακα «Σήμερα»). Οι υπεύθυνοι δεν ειδοποιούνται (πολιτική: ενημέρωση μόνο του εργαζόμενου).</p></td></tr>';
+		}
 		$ch = $edit['notify_channel'] ?? 'sms';
 		echo '<tr><th>Κανάλι προς τον εργαζόμενο</th><td><select name="notify_channel">';
 		foreach ( array( 'sms', 'email', 'both' ) as $c ) {
@@ -361,6 +368,12 @@ class LGTKS_Admin {
 
 		$excluded = array();
 		foreach ( $list as $e ) {
+			if ( ! LGTKS_Settings::managers_enabled() ) {
+				if ( ! in_array( $e['notify_target'], array( 'both', 'employee' ), true ) ) {
+					$excluded[] = $e['name'];
+				}
+				continue;
+			}
 			if ( 'none' === $e['notify_target'] ) {
 				$excluded[] = $e['name'] . ' (κανείς)';
 			} elseif ( 'manager' === $e['notify_target'] ) {
@@ -370,13 +383,14 @@ class LGTKS_Admin {
 			}
 		}
 		echo '<div class="lgtks-section"><h2>Εξαιρέσεις από ειδοποιήσεις</h2><p>' . ( $excluded ? esc_html( implode( ' · ', $excluded ) ) : 'Καμία – για όλους ειδοποιούνται και ο ίδιος και ο υπεύθυνος.' ) . '</p></div>';
-		echo '<table class="widefat striped"><thead><tr><th>Όνομα</th><th>Κινητό / Email</th><th>Ειδοπ. ίδιος</th><th>Ειδοπ. υπεύθυνος</th><th>Κωδικός</th>';
+		$mgr_on = LGTKS_Settings::managers_enabled();
+		echo '<table class="widefat striped"><thead><tr><th>Όνομα</th><th>Κινητό / Email</th><th>Ειδοπ. ίδιος</th>' . ( $mgr_on ? '<th>Ειδοπ. υπεύθυνος</th>' : '' ) . '<th>Κωδικός</th>';
 		foreach ( $days as $l ) {
 			echo '<th>' . esc_html( $l ) . '</th>';
 		}
 		echo '<th>Ενεργός</th><th></th></tr></thead><tbody>';
 		foreach ( $list as $e ) {
-			echo '<tr><td><strong>' . esc_html( $e['name'] ) . '</strong></td><td>' . esc_html( $e['mobile'] ) . ( $e['email'] ? '<br><small>' . esc_html( $e['email'] ) . '</small>' : '' ) . '</td><td>' . ( in_array( $e['notify_target'], array( 'both', 'employee' ), true ) ? '<span class="lgtks-status present">ΝΑΙ</span> <small>' . esc_html( self::channel_label( $e['notify_channel'] ) ) . '</small>' : '<span class="lgtks-status off">ΟΧΙ</span>' ) . '</td><td>' . ( in_array( $e['notify_target'], array( 'both', 'manager' ), true ) ? '<span class="lgtks-status present">ΝΑΙ</span>' : '<span class="lgtks-status off">ΟΧΙ</span>' ) . '</td><td>' . esc_html( $e['external_id'] ) . '</td>';
+			echo '<tr><td><strong>' . esc_html( $e['name'] ) . '</strong></td><td>' . esc_html( $e['mobile'] ) . ( $e['email'] ? '<br><small>' . esc_html( $e['email'] ) . '</small>' : '' ) . '</td><td>' . ( in_array( $e['notify_target'], array( 'both', 'employee' ), true ) ? '<span class="lgtks-status present">ΝΑΙ</span> <small>' . esc_html( self::channel_label( $e['notify_channel'] ) ) . '</small>' : '<span class="lgtks-status off">ΟΧΙ</span>' ) . '</td>' . ( $mgr_on ? '<td>' . ( in_array( $e['notify_target'], array( 'both', 'manager' ), true ) ? '<span class="lgtks-status present">ΝΑΙ</span>' : '<span class="lgtks-status off">ΟΧΙ</span>' ) . '</td>' : '' ) . '<td>' . esc_html( $e['external_id'] ) . '</td>';
 			foreach ( $days as $d => $l ) {
 				echo '<td>' . ( ! empty( $e['schedule'][ $d ] ) ? esc_html( $e['schedule'][ $d ] ) : '<span style="color:#aaa">—</span>' ) . '</td>';
 			}
@@ -513,7 +527,8 @@ class LGTKS_Admin {
 		self::text( 'receipt_subject_in', 'Θέμα email προσέλευσης', 'Μεταβλητές: {first_name} {name} {punch_time} {date} {company}.' );
 		self::text( 'receipt_subject_out', 'Θέμα email αποχώρησης', 'Ίδιες μεταβλητές.' );
 		echo '</tbody></table></div>';
-		echo '<div class="lgtks-section"><h2>Υπεύθυνοι</h2><table class="form-table"><tbody>';
+		echo '<div class="lgtks-section"><h2>Υπεύθυνοι / λογιστήριο</h2><table class="form-table"><tbody>';
+		self::check( 'managers_enabled', 'Ειδοποιήσεις υπευθύνων', '<strong>Απενεργοποιημένες</strong> από προεπιλογή: το σύστημα ενημερώνει μόνο τον εργαζόμενο. Αν ενεργοποιηθούν, ισχύουν όλα τα παρακάτω (συγκεντρωτική, κλιμάκωση, email χτυπημάτων, κουμπί στη σελίδα «Σήμερα»). Τα τεχνικά email προς τον τεχνικό δεν επηρεάζονται.' );
 		self::select( 'manager_channel', 'Μέσο ειδοποίησης υπευθύνων', array( 'both' => 'SMS + Email', 'sms' => 'Μόνο SMS', 'email' => 'Μόνο Email', 'none' => 'Καμία αυτόματη (μόνο με το κουμπί)' ), 'Ισχύει για τη συγκεντρωτική ειδοποίηση και την κλιμάκωση.' );
 		self::text( 'manager_digest_times', 'Ώρες συγκεντρωτικής ειδοποίησης', 'Π.χ. <code>11:00</code> ή <code>11:00, 17:30</code>. Σε κάθε ώρα στέλνεται <strong>ένα</strong> SMS με τα ονόματα όσων δεν έχουν χτυπήσει ακόμη και ένα αναλυτικό email, <strong>μόνο αν εκκρεμεί κάποιος</strong>. Μία φορά ανά ώρα ανά ημέρα.' );
 		self::check( 'manager_digest_all_ok', 'Email και όταν όλα είναι εντάξει', 'Στις παραπάνω ώρες να στέλνεται email «όλοι χτύπησαν» ακόμη κι αν δεν εκκρεμεί κανείς (SMS δεν στέλνεται).' );
@@ -524,7 +539,7 @@ class LGTKS_Admin {
 		self::select( 'clockin_email_mode', 'Πότε στέλνεται', array( 'exceptions' => 'Μόνο εξαιρέσεις: καθυστέρηση πάνω από το όριο, χτύπημα χωρίς βάρδια (προτείνεται)', 'batch' => 'Ομαδοποίηση: ένα email ανά Χ λεπτά με όλα τα νέα χτυπήματα', 'all' => 'Όλα, ένα email ανά χτύπημα' ), 'Στις «εξαιρέσεις» όποιος έρχεται στην ώρα του δεν παράγει email· η πλήρης λίστα υπάρχει στη συγκεντρωτική των υπευθύνων (προσθέστε π.χ. και 18:00 με «email και όταν όλα είναι εντάξει» για αναφορά τέλους ημέρας).' );
 		self::text( 'clockin_late_threshold', 'Όριο καθυστέρησης για email (λεπτά)', 'Μόνο για «εξαιρέσεις». Π.χ. 15 = email όταν η προσέλευση είναι πάνω από 15′ μετά την έναρξη βάρδιας.', 'number', 'min="0" max="600" style="width:90px"' );
 		self::text( 'clockin_batch_minutes', 'Ομαδοποίηση ανά (λεπτά)', 'Μόνο για «ομαδοποίηση». Π.χ. 60 = ένα email την ώρα.', 'number', 'min="5" max="720" style="width:90px"' );
-		self::check( 'anomaly_email', 'Email σε διπλή προσέλευση', 'Αν ένας εργαζόμενος χτυπήσει δεύτερη προσέλευση χωρίς αποχώρηση ανάμεσα (ή περισσότερες προσελεύσεις από τις βάρδιές του), στέλνεται email στους ίδιους παραλήπτες, μία φορά ανά εργαζόμενο την ημέρα. Εξαιρούνται όσοι έχουν «όχι ο υπεύθυνος».' );
+		self::check( 'anomaly_email', 'Email σε διπλή προσέλευση', 'Δεύτερη προσέλευση χωρίς αποχώρηση ανάμεσα (ή περισσότερες προσελεύσεις από τις βάρδιες). Με τους υπευθύνους απενεργοποιημένους, η προειδοποίηση πηγαίνει <strong>στον ίδιο τον εργαζόμενο</strong> με email (αν το κανάλι του περιλαμβάνει email)· αλλιώς στους παραλήπτες των email χτυπημάτων. Μία φορά ανά εργαζόμενο την ημέρα.' );
 		self::select( 'clockin_email_kinds', 'Για ποια χτυπήματα', array( 'in' => 'Μόνο προσελεύσεις', 'all' => 'Προσελεύσεις και αποχωρήσεις' ), 'Για «ομαδοποίηση» και «όλα». Οι «εξαιρέσεις» αφορούν μόνο προσελεύσεις.' );
 		self::area( 'clockin_email_to', 'Παραλήπτες email χτυπημάτων', 'Ένα ανά γραμμή ή με κόμμα. Κενό = τα «Email υπευθύνων».', 2 );
 		self::text( 'clockin_email_subject', 'Θέμα email χτυπήματος', 'Μεταβλητές: {name} {first_name} {punch_time} {kind} {time} (βάρδια) {delay} {date} {company}.' );
@@ -697,7 +712,7 @@ class LGTKS_Admin {
 			if ( in_array( $k, array( 'webhook_token', 'cron_token' ), true ) ) {
 				continue;
 			}
-			if ( is_int( $d ) && in_array( $k, array( 'enabled', 'delete_on_uninstall', 'ev_use_schedule', 'ev_auto_create', 'manager_per_employee', 'manager_digest_all_ok', 'clockin_email', 'anomaly_email', 'receipt_email', 'holidays_auto', 'holiday_clean_monday', 'holiday_holy_spirit', 'holiday_good_friday' ), true ) ) {
+			if ( is_int( $d ) && in_array( $k, array( 'enabled', 'delete_on_uninstall', 'ev_use_schedule', 'ev_auto_create', 'manager_per_employee', 'manager_digest_all_ok', 'clockin_email', 'anomaly_email', 'receipt_email', 'managers_enabled', 'holidays_auto', 'holiday_clean_monday', 'holiday_holy_spirit', 'holiday_good_friday' ), true ) ) {
 				$out[ $k ] = empty( $in[ $k ] ) ? 0 : 1;
 			} elseif ( is_int( $d ) ) {
 				$out[ $k ] = isset( $in[ $k ] ) ? max( 0, (int) $in[ $k ] ) : $d;
