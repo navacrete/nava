@@ -51,6 +51,9 @@ class LGTKS_Checker {
 				'deadline'  => null,
 				'shift'     => $shift,
 				'ev'        => null !== $ev,
+				'end'       => $shift ? $shift['end'] : '',
+				'out_at'    => null,
+				'out_late'  => 0,
 			);
 			if ( $shift && '' !== $shift['in'] ) {
 				$row['first_at'] = $day . ' ' . $shift['in'] . ':00';
@@ -82,6 +85,14 @@ class LGTKS_Checker {
 					} else {
 						$row['status'] = 'due';
 					}
+				}
+			}
+			if ( 'present' === $row['status'] && $row['first_at'] ) {
+				$out = ( $shift && '' !== $shift['out'] ) ? $day . ' ' . $shift['out'] . ':00' : LGTKS_DB::last_out_after( $e['id'], $day, $row['first_at'] );
+				$row['out_at'] = $out ? $out : null;
+				if ( '' !== $row['end'] ) {
+					$end_dt          = new DateTime( $day . ' ' . $row['end'], $tz );
+					$row['out_late'] = (int) floor( ( $now->getTimestamp() - $end_dt->getTimestamp() ) / 60 );
 				}
 			}
 			$rows[] = $row;
@@ -157,6 +168,9 @@ class LGTKS_Checker {
 				foreach ( $r['sms'] as $n ) {
 					$is_emp = in_array( $n['channel'], array( 'sms', 'email' ), true );
 					$rnd    = (int) $n['round'];
+					if ( 5 === $rnd ) {
+						continue; // clock-out reminder is tracked separately
+					}
 					if ( 3 === $rnd && ! $is_emp ) {
 						$sent_rounds[3] = true; // escalation already sent today (sent or failed: do not retry every 5')
 					} elseif ( $is_emp && ( 'sent' === $n['status'] || 'failed' === $n['status'] ) && ! isset( $sent_rounds[ $rnd ] ) ) {
@@ -182,6 +196,7 @@ class LGTKS_Checker {
 					$summary['failed']++;
 				}
 			}
+			$summary['out'] = self::run_out_reminders( $rows );
 			$summary['double'] = self::check_double_clockins( $day );
 			$summary['batch']  = self::flush_punch_queue();
 			$summary['digest'] = self::run_digest( $rows );
@@ -534,6 +549,68 @@ class LGTKS_Checker {
 			}
 		}
 		return $sent;
+	}
+
+	/**
+	 * Clock-out reminder: shift ended (per eVardia) + grace, employee clocked in but no clock-out yet.
+	 * Exactly once per employee per day (round 5).
+	 */
+	public static function run_out_reminders( array $rows ) {
+		if ( self::$dry || ! LGTKS_Settings::get( 'out_reminder', 1 ) ) {
+			return 0;
+		}
+		$grace = (int) LGTKS_Settings::get( 'out_grace_minutes', 20 );
+		$maxd  = (int) LGTKS_Settings::get( 'out_max_delay_minutes', 180 );
+		$day   = LGTKS_Settings::now( 'Y-m-d' );
+		$sent  = 0;
+		foreach ( $rows as $r ) {
+			$e = $r['employee'];
+			if ( 'present' !== $r['status'] || '' === $r['end'] || $r['out_at'] ) {
+				continue;
+			}
+			if ( $r['out_late'] < $grace || $r['out_late'] > $maxd ) {
+				continue;
+			}
+			if ( ! in_array( $e['notify_target'], array( 'both', 'employee' ), true ) || ! self::has_contact( $e ) ) {
+				continue;
+			}
+			$already = false;
+			foreach ( $r['sms'] as $n ) {
+				if ( 5 === (int) $n['round'] ) {
+					$already = true;
+					break;
+				}
+			}
+			if ( $already ) {
+				continue;
+			}
+			$vars        = self::vars( $r );
+			$vars['{end}'] = $r['end'];
+			$vars['{minutes}'] = max( 0, (int) $r['out_late'] );
+			$msg = strtr( (string) LGTKS_Settings::get( 'out_message_template' ), $vars );
+			if ( self::send_to_employee( $e, $msg, 5, 'Υπενθύμιση: χτύπημα αποχώρησης' ) ) {
+				$sent++;
+			}
+		}
+		return $sent;
+	}
+
+	/** Send a message to the employee through their channel; records notifications with the given round. */
+	public static function send_to_employee( array $e, $msg, $round, $subject ) {
+		$day     = LGTKS_Settings::now( 'Y-m-d' );
+		$channel = isset( $e['notify_channel'] ) ? $e['notify_channel'] : 'sms';
+		$ok_any  = false;
+		if ( in_array( $channel, array( 'sms', 'both' ), true ) && '' !== trim( (string) $e['mobile'] ) ) {
+			$res = LGTKS_SMS::send( $e['mobile'], $msg );
+			LGTKS_DB::add_notification( $e['id'], $day, $round, 'sms', $e['mobile'], $msg, $res['ok'] ? 'sent' : 'failed', $res['response'] );
+			$ok_any = $ok_any || $res['ok'];
+		}
+		if ( in_array( $channel, array( 'email', 'both' ), true ) && is_email( trim( (string) $e['email'] ) ) ) {
+			$ok = wp_mail( trim( $e['email'] ), $subject, $msg );
+			LGTKS_DB::add_notification( $e['id'], $day, $round, 'email', trim( $e['email'] ), $msg, $ok ? 'sent' : 'failed', $ok ? 'wp_mail OK' : 'wp_mail απέτυχε' );
+			$ok_any = $ok_any || $ok;
+		}
+		return $ok_any;
 	}
 
 	/** Immediate manager alert for a long delay (round 3, once per day per employee). */

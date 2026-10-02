@@ -139,6 +139,12 @@ class LGTKS_DB {
 		return (bool) $wpdb->get_var( $wpdb->prepare( 'SELECT 1 FROM ' . self::t( 'notifications' ) . ' WHERE employee_id = %d AND day = %s AND channel = %s LIMIT 1', $employee_id, $day, $channel ) ); // phpcs:ignore WordPress.DB
 	}
 
+	/** Latest clock-out punch at/after $from, or null. */
+	public static function last_out_after( $employee_id, $day, $from ) {
+		global $wpdb;
+		return $wpdb->get_var( $wpdb->prepare( 'SELECT MAX(punched_at) FROM ' . self::t( 'punches' ) . " WHERE employee_id = %d AND day = %s AND kind = 'out' AND punched_at >= %s", $employee_id, $day, $from ) ); // phpcs:ignore WordPress.DB
+	}
+
 	public static function first_punch_after( $employee_id, $day, $from ) {
 		global $wpdb;
 		return $wpdb->get_var( $wpdb->prepare( 'SELECT MIN(punched_at) FROM ' . self::t( 'punches' ) . ' WHERE employee_id = %d AND day = %s AND punched_at >= %s', $employee_id, $day, $from ) ); // phpcs:ignore WordPress.DB

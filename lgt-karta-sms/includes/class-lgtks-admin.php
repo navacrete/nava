@@ -199,14 +199,14 @@ class LGTKS_Admin {
 			echo '<tr>';
 			echo '<td><strong>' . esc_html( $e['name'] ) . '</strong>' . ( $e['external_id'] ? '<br><small>' . esc_html( $e['external_id'] ) . '</small>' : '' ) . ( ( in_array( $e['notify_target'], array( 'both', 'employee' ), true ) && ! LGTKS_Checker::has_contact( $e ) ) ? '<br><span class="lgtks-status due">λείπει κινητό/email</span> <a href="' . esc_url( self::url( 'employees', array( 'edit' => $e['id'] ) ) ) . '">συμπλήρωση</a>' : '' ) . '</td>';
 			echo '<td>' . esc_html( $e['mobile'] ) . ( $e['email'] ? '<br><small>' . esc_html( $e['email'] ) . '</small>' : '' ) . '<br><small style="color:#646970">' . esc_html( ( LGTKS_Settings::managers_enabled() ? self::target_label( $e['notify_target'] ) : ( in_array( $e['notify_target'], array( 'both', 'employee' ), true ) ? 'Ειδοποιείται' : 'Δεν ειδοποιείται' ) ) . ( in_array( $e['notify_target'], array( 'both', 'employee' ), true ) ? ' · ' . self::channel_label( $e['notify_channel'] ) : '' ) ) . '</small></td>';
-			echo '<td>' . ( $r['start'] ? esc_html( $r['start'] ) : '—' ) . '</td>';
+			echo '<td>' . ( $r['start'] ? esc_html( $r['start'] . ( ! empty( $r['end'] ) ? '–' . $r['end'] : '' ) ) : '—' ) . '</td>';
 			echo '<td>' . ( $r['deadline'] ? esc_html( $r['deadline'] ) : '—' ) . '</td>';
 			echo '<td><span class="lgtks-status ' . esc_attr( $r['status'] ) . '">' . esc_html( self::status_label( $r['status'] ) ) . '</span></td>';
-			echo '<td>' . ( $r['first_at'] ? esc_html( substr( $r['first_at'], 11, 5 ) ) : '—' ) . '</td>';
+			echo '<td>' . ( $r['first_at'] ? esc_html( substr( $r['first_at'], 11, 5 ) ) . ( ! empty( $r['out_at'] ) ? ' → ' . esc_html( substr( $r['out_at'], 11, 5 ) ) : ( ! empty( $r['end'] ) && (int) ( $r['out_late'] ?? 0 ) > 0 ? ' → <span class="lgtks-status not_yet">χωρίς αποχώρηση</span>' : '' ) ) : '—' ) . '</td>';
 			$sms = array();
 			foreach ( $r['sms'] as $n ) {
 				$lbl   = array( 'sms' => 'SMS', 'email' => 'email', 'manager' => 'υπεύθ. SMS', 'manager_email' => 'υπεύθ. email' );
-				$sms[] = ( 'sent' === $n['status'] ? '✔' : '✖' ) . ' ' . ( $lbl[ $n['channel'] ] ?? $n['channel'] ) . ' ' . substr( $n['created_at'], 11, 5 );
+				$sms[] = ( 'sent' === $n['status'] ? '✔' : '✖' ) . ' ' . ( $lbl[ $n['channel'] ] ?? $n['channel'] ) . ( 5 === (int) $n['round'] ? ' (αποχώρηση)' : '' ) . ' ' . substr( $n['created_at'], 11, 5 );
 			}
 			if ( 'none' === $e['notify_target'] || ( ! LGTKS_Settings::managers_enabled() && 'manager' === $e['notify_target'] ) ) {
 				echo '<td><span class="lgtks-status off">Εξαιρείται</span></td>';
@@ -522,6 +522,10 @@ class LGTKS_Admin {
 		self::text( 'max_delay_minutes', 'Μέγιστη καθυστέρηση (λεπτά)', 'Μετά από τόσα λεπτά από την έναρξη δεν στέλνεται πλέον SMS (π.χ. ο εργαζόμενος απουσιάζει).', 'number', 'min="0" max="1440" style="width:90px"' );
 		self::text( 'email_subject', 'Θέμα email στον εργαζόμενο', 'Για όσους έχουν ειδοποίηση Email ή SMS + Email. Το σώμα του email είναι το ίδιο μήνυμα με το SMS.' );
 		self::area( 'message_template', 'Μήνυμα στον εργαζόμενο (SMS και email)', '<strong>Στέλνεται μία φορά την ημέρα ανά εργαζόμενο.</strong> Μεταβλητές: {first_name} {name} {time} {date} {now} {minutes} {company}. Ελληνικοί χαρακτήρες = Unicode SMS (70 χαρακτήρες/τμήμα).', 3 );
+		self::check( 'out_reminder', 'Υπενθύμιση αποχώρησης', 'Αν η βάρδια έληξε (ώρα λήξης από το eVardia) και δεν υπάρχει χτύπημα αποχώρησης, στέλνεται <strong>μία</strong> υπενθύμιση στον εργαζόμενο με το κανάλι του.' );
+		self::text( 'out_grace_minutes', 'Ανοχή αποχώρησης (λεπτά)', 'Πόσα λεπτά μετά τη λήξη βάρδιας περιμένουμε πριν την υπενθύμιση.', 'number', 'min="0" max="600" style="width:90px"' );
+		self::text( 'out_max_delay_minutes', 'Μέγιστη καθυστέρηση αποχώρησης (λεπτά)', 'Μετά από τόσα λεπτά από τη λήξη δεν στέλνεται πλέον.', 'number', 'min="0" max="1440" style="width:90px"' );
+		self::area( 'out_message_template', 'Μήνυμα υπενθύμισης αποχώρησης', 'Μεταβλητές: {first_name} {name} {end} (ώρα λήξης) {time} (έναρξη) {minutes} {date} {company}.', 2 );
 		self::check( 'receipt_email', 'Email επιβεβαίωσης στον εργαζόμενο', 'Όσοι έχουν κανάλι Email ή SMS + Email (και «ειδοποιείται ο ίδιος») λαμβάνουν email «καταγράφηκε η προσέλευσή/αποχώρησή σου HH:MM» σε κάθε χτύπημα. Χωρίς κόστος SMS.' );
 		self::select( 'receipt_email_kinds', 'Επιβεβαίωση για', array( 'all' => 'Προσέλευση και αποχώρηση', 'in' => 'Μόνο προσέλευση' ) );
 		self::text( 'receipt_subject_in', 'Θέμα email προσέλευσης', 'Μεταβλητές: {first_name} {name} {punch_time} {date} {company}.' );
@@ -712,14 +716,14 @@ class LGTKS_Admin {
 			if ( in_array( $k, array( 'webhook_token', 'cron_token' ), true ) ) {
 				continue;
 			}
-			if ( is_int( $d ) && in_array( $k, array( 'enabled', 'delete_on_uninstall', 'ev_use_schedule', 'ev_auto_create', 'manager_per_employee', 'manager_digest_all_ok', 'clockin_email', 'anomaly_email', 'receipt_email', 'managers_enabled', 'holidays_auto', 'holiday_clean_monday', 'holiday_holy_spirit', 'holiday_good_friday' ), true ) ) {
+			if ( is_int( $d ) && in_array( $k, array( 'enabled', 'delete_on_uninstall', 'ev_use_schedule', 'ev_auto_create', 'manager_per_employee', 'manager_digest_all_ok', 'clockin_email', 'anomaly_email', 'receipt_email', 'managers_enabled', 'out_reminder', 'holidays_auto', 'holiday_clean_monday', 'holiday_holy_spirit', 'holiday_good_friday' ), true ) ) {
 				$out[ $k ] = empty( $in[ $k ] ) ? 0 : 1;
 			} elseif ( is_int( $d ) ) {
 				$out[ $k ] = isset( $in[ $k ] ) ? max( 0, (int) $in[ $k ] ) : $d;
 			} elseif ( isset( $in[ $k ] ) ) {
 				$v = (string) $in[ $k ];
 				// Keep headers/bodies/templates raw (they may contain JSON, quotes, {vars}); only strip tags.
-				$out[ $k ] = in_array( $k, array( 'generic_headers', 'generic_body', 'source_headers', 'source_body', 'message_template', 'manager_message_template', 'holidays', 'manager_mobiles', 'wl_extra_fields', 'wl_password', 'wl_username', 'ev_password', 'ev_username', 'manager_email', 'manager_digest_sms', 'manager_escalation_template', 'clockin_email_to' ), true ) ? wp_strip_all_tags( $v ) : sanitize_text_field( $v );
+				$out[ $k ] = in_array( $k, array( 'generic_headers', 'generic_body', 'source_headers', 'source_body', 'message_template', 'manager_message_template', 'holidays', 'manager_mobiles', 'wl_extra_fields', 'wl_password', 'wl_username', 'ev_password', 'ev_username', 'manager_email', 'manager_digest_sms', 'manager_escalation_template', 'clockin_email_to', 'out_message_template' ), true ) ? wp_strip_all_tags( $v ) : sanitize_text_field( $v );
 			}
 		}
 		if ( ! empty( $out['sms_sender'] ) ) {
@@ -847,7 +851,7 @@ class LGTKS_Admin {
 		echo '<div class="wrap lgtks-wrap"><h1>Ιστορικό</h1>';
 		echo '<h2>Ειδοποιήσεις</h2><table class="widefat striped"><thead><tr><th>Πότε</th><th>Εργαζόμενος</th><th>Κανάλι</th><th>Παραλήπτης</th><th>Κατάσταση</th><th>Μήνυμα</th><th>Απάντηση παρόχου</th></tr></thead><tbody>';
 		foreach ( LGTKS_DB::recent_notifications( 200 ) as $n ) {
-			echo '<tr><td>' . esc_html( $n['created_at'] ) . '</td><td>' . esc_html( $n['name'] ?: ( $n['employee_id'] ? '#' . $n['employee_id'] : '—' ) ) . '</td><td>' . esc_html( self::notif_channel_label( $n['channel'] ) ) . ( 3 === (int) $n['round'] ? ' – ΚΛΙΜΑΚΩΣΗ' : '' ) . '</td><td>' . esc_html( $n['recipient'] ) . '</td><td>' . ( 'sent' === $n['status'] ? '<span class="lgtks-status present">Εστάλη</span>' : '<span class="lgtks-status due">Απέτυχε</span>' ) . '</td><td>' . esc_html( $n['message'] ) . '</td><td><small>' . esc_html( mb_substr( (string) $n['response'], 0, 200 ) ) . '</small></td></tr>';
+			echo '<tr><td>' . esc_html( $n['created_at'] ) . '</td><td>' . esc_html( $n['name'] ?: ( $n['employee_id'] ? '#' . $n['employee_id'] : '—' ) ) . '</td><td>' . esc_html( self::notif_channel_label( $n['channel'] ) ) . ( 3 === (int) $n['round'] ? ' – ΚΛΙΜΑΚΩΣΗ' : ( 5 === (int) $n['round'] ? ' – αποχώρηση' : '' ) ) . '</td><td>' . esc_html( $n['recipient'] ) . '</td><td>' . ( 'sent' === $n['status'] ? '<span class="lgtks-status present">Εστάλη</span>' : '<span class="lgtks-status due">Απέτυχε</span>' ) . '</td><td>' . esc_html( $n['message'] ) . '</td><td><small>' . esc_html( mb_substr( (string) $n['response'], 0, 200 ) ) . '</small></td></tr>';
 		}
 		echo '</tbody></table>';
 		echo '<h2>Καταγραφή συστήματος</h2><table class="widefat striped"><thead><tr><th>Πότε</th><th>Επίπεδο</th><th>Μήνυμα</th><th>Λεπτομέρειες</th></tr></thead><tbody>';
