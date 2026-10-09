@@ -124,8 +124,15 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="28dp"
+            android:gravity="center_horizontal"
             android:orientation="vertical"
             android:visibility="gone">
+            <ImageView
+                android:layout_width="72dp"
+                android:layout_height="72dp"
+                android:layout_marginBottom="12dp"
+                android:contentDescription="@string/recipient_112"
+                android:src="@drawable/ic_112_badge" />
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnCall"
                 android:layout_width="match_parent"

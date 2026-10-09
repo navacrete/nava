@@ -5,6 +5,7 @@
     <PreferenceCategory android:title="@string/settings_cat_send">
         <SwitchPreferenceCompat
             android:key="send_112"
+            android:icon="@drawable/ic_112_badge"
             android:title="@string/settings_send_112"
             android:summary="@string/settings_send_112_sum"
             android:defaultValue="true" />

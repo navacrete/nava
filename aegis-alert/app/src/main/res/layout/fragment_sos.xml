@@ -43,6 +43,13 @@
                     android:layout_height="wrap_content"
                     android:text="@string/app_tagline" />
             </LinearLayout>
+            <ImageView
+                android:id="@+id/img112"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:layout_marginEnd="10dp"
+                android:contentDescription="@string/recipient_112"
+                android:src="@drawable/ic_112_badge" />
             <com.google.android.material.chip.Chip
                 android:id="@+id/chipStatus"
                 style="@style/Widget.Material3.Chip.Assist"
@@ -392,7 +399,9 @@
                 android:layout_marginEnd="6dp"
                 android:layout_weight="1"
                 android:text="@string/sos_call_112"
-                app:icon="@drawable/ic_phone" />
+                app:icon="@drawable/ic_112_badge"
+                app:iconSize="28dp"
+                app:iconTint="@null" />
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnSafe"
                 style="@style/Widget.Material3.Button.OutlinedButton"

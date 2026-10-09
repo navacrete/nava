@@ -48,6 +48,7 @@ class SettingsFragment : PreferenceFragmentCompat() {
             about.setOnPreferenceClickListener {
                 AlertDialog.Builder(requireContext())
                     .setTitle(R.string.app_name)
+                    .setIcon(R.drawable.ic_112_badge)
                     .setMessage(R.string.settings_about_text)
                     .setPositiveButton(R.string.ok, null)
                     .show()
