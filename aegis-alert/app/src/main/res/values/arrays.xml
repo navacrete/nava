@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string-array name="checkin_entries">
+        <item>15 λεπτά</item>
+        <item>30 λεπτά</item>
+        <item>1 ώρα</item>
+        <item>2 ώρες</item>
+    </string-array>
+    <string-array name="checkin_values">
+        <item>15</item>
+        <item>30</item>
+        <item>60</item>
+        <item>120</item>
+    </string-array>
+    <string-array name="grace_entries">
+        <item>30 δευτερόλεπτα</item>
+        <item>60 δευτερόλεπτα</item>
+        <item>2 λεπτά</item>
+    </string-array>
+    <string-array name="grace_values">
+        <item>30</item>
+        <item>60</item>
+        <item>120</item>
+    </string-array>
+    <string-array name="tracking_entries">
+        <item>Κάθε 2 λεπτά</item>
+        <item>Κάθε 5 λεπτά</item>
+        <item>Κάθε 10 λεπτά</item>
+        <item>Κάθε 15 λεπτά</item>
+        <item>Κάθε 30 λεπτά</item>
+    </string-array>
+    <string-array name="tracking_values">
+        <item>2</item>
+        <item>5</item>
+        <item>10</item>
+        <item>15</item>
+        <item>30</item>
+    </string-array>
+    <string-array name="blood_types">
+        <item>-</item>
+        <item>O+</item>
+        <item>O-</item>
+        <item>A+</item>
+        <item>A-</item>
+        <item>B+</item>
+        <item>B-</item>
+        <item>AB+</item>
+        <item>AB-</item>
+    </string-array>
+</resources>

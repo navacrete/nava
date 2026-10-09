@@ -1,0 +1,67 @@
+name: Build AEGIS APK
+
+on:
+  push:
+    paths:
+      - "aegis-alert/**"
+      - ".github/workflows/aegis-apk.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: aegis-apk-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Assemble release APK
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: aegis-alert
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Build release APK
+        run: |
+          chmod +x gradlew
+          ./gradlew --no-daemon --stacktrace assembleRelease
+
+      - name: Collect APK
+        run: |
+          mkdir -p out
+          cp app/build/outputs/apk/release/app-release.apk out/AEGIS.apk
+          ls -la out
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: AEGIS-apk
+          path: aegis-alert/out/AEGIS.apk
+          if-no-files-found: error
+
+      - name: Publish "latest" release with the APK
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release delete latest --cleanup-tag --yes --repo "$GITHUB_REPOSITORY" || true
+          gh release create latest out/AEGIS.apk \
+            --repo "$GITHUB_REPOSITORY" \
+            --target "$GITHUB_SHA" \
+            --title "AEGIS – latest APK" \
+            --notes "Automatic build from commit ${GITHUB_SHA::7} (branch ${GITHUB_REF_NAME}). Download AEGIS.apk and install it on your Android phone (allow installs from unknown sources)."

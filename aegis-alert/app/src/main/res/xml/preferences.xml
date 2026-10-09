@@ -1,0 +1,103 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+
+    <PreferenceCategory android:title="@string/settings_cat_send">
+        <SwitchPreferenceCompat
+            android:key="send_112"
+            android:title="@string/settings_send_112"
+            android:summary="@string/settings_send_112_sum"
+            android:defaultValue="true" />
+        <SwitchPreferenceCompat
+            android:key="send_contacts"
+            android:title="@string/settings_send_contacts"
+            android:summary="@string/settings_send_contacts_sum"
+            android:defaultValue="true" />
+        <SeekBarPreference
+            android:key="countdown_seconds"
+            android:title="@string/settings_countdown"
+            android:defaultValue="5"
+            android:max="30"
+            app:min="3"
+            app:showSeekBarValue="true" />
+        <SeekBarPreference
+            android:key="location_wait_seconds"
+            android:title="@string/settings_location_wait"
+            android:defaultValue="20"
+            android:max="60"
+            app:min="5"
+            app:showSeekBarValue="true" />
+        <SwitchPreferenceCompat
+            android:key="include_name_112"
+            android:title="@string/settings_include_name"
+            android:defaultValue="true" />
+        <SwitchPreferenceCompat
+            android:key="include_medical_contacts"
+            android:title="@string/settings_include_medical"
+            android:defaultValue="true" />
+        <SwitchPreferenceCompat
+            android:key="auto_call_112"
+            android:title="@string/settings_auto_call"
+            android:summary="@string/settings_auto_call_sum"
+            android:defaultValue="false" />
+        <SwitchPreferenceCompat
+            android:key="discreet_mode"
+            android:title="@string/settings_discreet"
+            android:summary="@string/settings_discreet_sum"
+            android:defaultValue="false" />
+    </PreferenceCategory>
+
+    <PreferenceCategory android:title="@string/settings_cat_checkin">
+        <ListPreference
+            android:key="checkin_minutes"
+            android:title="@string/settings_checkin_default"
+            android:entries="@array/checkin_entries"
+            android:entryValues="@array/checkin_values"
+            android:defaultValue="30"
+            app:useSimpleSummaryProvider="true" />
+        <ListPreference
+            android:key="checkin_grace_seconds"
+            android:title="@string/settings_checkin_grace"
+            android:entries="@array/grace_entries"
+            android:entryValues="@array/grace_values"
+            android:defaultValue="60"
+            app:useSimpleSummaryProvider="true" />
+    </PreferenceCategory>
+
+    <PreferenceCategory android:title="@string/settings_cat_tracking">
+        <ListPreference
+            android:key="tracking_interval_minutes"
+            android:title="@string/settings_tracking_interval"
+            android:entries="@array/tracking_entries"
+            android:entryValues="@array/tracking_values"
+            android:defaultValue="5"
+            app:useSimpleSummaryProvider="true" />
+    </PreferenceCategory>
+
+    <PreferenceCategory android:title="@string/settings_cat_test">
+        <SwitchPreferenceCompat
+            android:key="test_mode"
+            android:title="@string/settings_test_mode"
+            android:summary="@string/settings_test_mode_sum"
+            android:defaultValue="false" />
+        <EditTextPreference
+            android:key="test_number"
+            android:title="@string/settings_test_number"
+            android:inputType="phone"
+            android:dependency="test_mode"
+            app:useSimpleSummaryProvider="true" />
+    </PreferenceCategory>
+
+    <PreferenceCategory android:title="@string/settings_cat_system">
+        <Preference
+            android:key="battery"
+            android:title="@string/settings_battery"
+            android:summary="@string/settings_battery_sum" />
+        <Preference
+            android:key="app_info"
+            android:title="@string/settings_app_info" />
+        <Preference
+            android:key="about"
+            android:title="@string/settings_about" />
+    </PreferenceCategory>
+</PreferenceScreen>

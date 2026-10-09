@@ -1,0 +1,239 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">AEGIS</string>
+    <string name="app_tagline">Close Protection Alert</string>
+    <string name="tile_label">AEGIS SOS</string>
+    <string name="shortcut_sos_short">SOS</string>
+    <string name="shortcut_sos_long">Άμεσο SOS με τοποθεσία</string>
+    <string name="shortcut_call_short">Κλήση 112</string>
+    <string name="shortcut_call_long">Κλήση 112</string>
+
+    <!-- navigation -->
+    <string name="nav_sos">SOS</string>
+    <string name="nav_contacts">Επαφές</string>
+    <string name="nav_profile">Προφίλ</string>
+    <string name="nav_history">Ιστορικό</string>
+    <string name="nav_settings">Ρυθμίσεις</string>
+
+    <!-- emergency types -->
+    <string name="type_general">Γενικό SOS</string>
+    <string name="type_medical">Ιατρικό</string>
+    <string name="type_fire">Φωτιά</string>
+    <string name="type_police">Επίθεση / Αστυνομία</string>
+    <string name="type_threat">Απαγωγή / Απειλή</string>
+    <string name="type_accident">Τροχαίο</string>
+    <string name="type_general_sms">SOS - ΧΡΕΙΑΖΟΜΑΙ ΑΜΕΣΗ ΒΟΗΘΕΙΑ</string>
+    <string name="type_medical_sms">ΙΑΤΡΙΚΟ ΕΠΕΙΓΟΝ - ΧΡΕΙΑΖΟΜΑΙ ΑΣΘΕΝΟΦΟΡΟ</string>
+    <string name="type_fire_sms">ΦΩΤΙΑ - ΧΡΕΙΑΖΟΜΑΙ ΠΥΡΟΣΒΕΣΤΙΚΗ</string>
+    <string name="type_police_sms">ΕΠΙΘΕΣΗ - ΧΡΕΙΑΖΟΜΑΙ ΑΣΤΥΝΟΜΙΑ ΑΜΕΣΑ</string>
+    <string name="type_threat_sms">ΑΠΑΓΩΓΗ/ΑΠΕΙΛΗ - ΚΙΝΔΥΝΕΥΩ, ΣΤΕΙΛΤΕ ΑΣΤΥΝΟΜΙΑ</string>
+    <string name="type_accident_sms">ΤΡΟΧΑΙΟ ΑΤΥΧΗΜΑ - ΧΡΕΙΑΖΟΜΑΙ ΒΟΗΘΕΙΑ</string>
+
+    <!-- SOS screen -->
+    <string name="sos_header_status_ready">Έτοιμο</string>
+    <string name="sos_header_status_setup">Απαιτείται ρύθμιση</string>
+    <string name="sos_test_banner">ΔΟΚΙΜΑΣΤΙΚΗ ΛΕΙΤΟΥΡΓΙΑ: τα μηνύματα πηγαίνουν στο %1$s, όχι στο 112.</string>
+    <string name="sos_readiness_title">Ετοιμότητα συστήματος</string>
+    <string name="sos_perm_sms">Άδεια αποστολής SMS</string>
+    <string name="sos_perm_location">Άδεια τοποθεσίας</string>
+    <string name="sos_perm_notifications">Άδεια ειδοποιήσεων</string>
+    <string name="sos_perm_phone">Άδεια κλήσης (προαιρετική)</string>
+    <string name="sos_gps_enabled">GPS ενεργό</string>
+    <string name="sos_contacts_set">Επαφές έκτακτης ανάγκης</string>
+    <string name="sos_battery">Χωρίς περιορισμό μπαταρίας</string>
+    <string name="sos_grant">Παραχώρηση</string>
+    <string name="sos_fix">Ρύθμιση</string>
+    <string name="sos_contacts_count">%1$d επαφές</string>
+    <string name="sos_no_contacts">Καμία επαφή</string>
+    <string name="sos_type_title">Είδος περιστατικού</string>
+    <string name="sos_note_hint">Προαιρετική σημείωση (π.χ. όροφος, αριθμός ατόμων)</string>
+    <string name="sos_button">SOS</string>
+    <string name="sos_button_hint">Πάτησε για SOS με αντίστροφη μέτρηση · Κράτησε πατημένο για άμεση αποστολή</string>
+    <string name="sos_recipients_112_on">Προς 112 + επαφές</string>
+    <string name="sos_recipients_112_off">Μόνο προς επαφές</string>
+    <string name="sos_recipients_contacts_off">Μόνο προς 112</string>
+    <string name="sos_recipients_none">Κανένας παραλήπτης! Έλεγξε τις ρυθμίσεις.</string>
+    <string name="sos_call_112">Κλήση 112</string>
+    <string name="sos_im_safe">Είμαι ασφαλής</string>
+    <string name="sos_im_safe_sent">Στάλθηκε μήνυμα ασφαλείας σε %1$d επαφές</string>
+    <string name="sos_im_safe_no_contacts">Πρόσθεσε πρώτα επαφές έκτακτης ανάγκης</string>
+
+    <string name="checkin_title">Χρονομετρημένο check-in</string>
+    <string name="checkin_desc">Αν δεν πατήσεις «Είμαι ΟΚ» πριν λήξει ο χρόνος, στέλνεται αυτόματα SOS με την τοποθεσία σου. Ιδανικό για συναντήσεις, μετακινήσεις, ραντεβού.</string>
+    <string name="checkin_start">Έναρξη</string>
+    <string name="checkin_stop">Διακοπή</string>
+    <string name="checkin_ok">Είμαι ΟΚ (ανανέωση)</string>
+    <string name="checkin_remaining">Απομένουν %1$s</string>
+    <string name="checkin_inactive">Ανενεργό</string>
+    <string name="checkin_min_15">15 λεπτά</string>
+    <string name="checkin_min_30">30 λεπτά</string>
+    <string name="checkin_min_60">1 ώρα</string>
+    <string name="checkin_min_120">2 ώρες</string>
+    <string name="checkin_started">Check-in ενεργό για %1$d λεπτά</string>
+    <string name="checkin_notif_title">AEGIS: Δεν έγινε check-in</string>
+    <string name="checkin_notif_text">Το SOS θα σταλεί αυτόματα σε %1$d δευτ. Άνοιξε για ακύρωση.</string>
+    <string name="checkin_missed_note">Χαμένο check-in - πιθανή ανάγκη βοήθειας</string>
+    <string name="checkin_exact_alarm_needed">Για ακριβή χρονισμό επίτρεψε τους «Ξυπνητήρια και υπενθυμίσεις» στις ρυθμίσεις.</string>
+
+    <string name="tracking_title">Ζωντανή παρακολούθηση</string>
+    <string name="tracking_desc">Στέλνει την τοποθεσία σου στις επαφές σου ανά τακτά διαστήματα (ποτέ στο 112). Για διαδρομές ή αποστολές.</string>
+    <string name="tracking_start">Έναρξη παρακολούθησης</string>
+    <string name="tracking_stop">Διακοπή παρακολούθησης</string>
+    <string name="tracking_active">Ενεργή · κάθε %1$d λεπτά · %2$d αποστολές</string>
+    <string name="tracking_inactive">Ανενεργή</string>
+    <string name="tracking_notif_title">AEGIS: Ζωντανή παρακολούθηση</string>
+    <string name="tracking_notif_text">Αποστολή τοποθεσίας κάθε %1$d λεπτά · %2$d αποστολές</string>
+    <string name="tracking_sms">AEGIS ΠΑΡΑΚΟΛΟΥΘΗΣΗ (%1$s): %2$s - ενημέρωση κάθε %3$d λεπτά.</string>
+
+    <!-- alert screen -->
+    <string name="alert_title_countdown">ΑΠΟΣΤΟΛΗ SOS ΣΕ</string>
+    <string name="alert_title_locating">ΕΥΡΕΣΗ ΤΟΠΟΘΕΣΙΑΣ…</string>
+    <string name="alert_title_sending">ΑΠΟΣΤΟΛΗ SMS…</string>
+    <string name="alert_title_done">ΤΟ SOS ΣΤΑΛΘΗΚΕ</string>
+    <string name="alert_title_cancelled">ΑΚΥΡΩΘΗΚΕ</string>
+    <string name="alert_title_failed">ΑΠΟΤΥΧΙΑ</string>
+    <string name="alert_cancel">ΑΚΥΡΩΣΗ</string>
+    <string name="alert_send_now">ΑΠΟΣΤΟΛΗ ΤΩΡΑ</string>
+    <string name="alert_close">Κλείσιμο</string>
+    <string name="alert_recipients">Παραλήπτες: %1$s</string>
+    <string name="alert_location_found">Τοποθεσία: ±%1$dm</string>
+    <string name="alert_location_stale">Τελευταία γνωστή τοποθεσία (πριν %1$d λεπτά)</string>
+    <string name="alert_location_none">Τοποθεσία μη διαθέσιμη - στάλθηκε χωρίς συντεταγμένες</string>
+    <string name="alert_sent_summary">Στάλθηκαν %1$d μηνύματα. Δες την κατάσταση παράδοσης στο Ιστορικό.</string>
+    <string name="alert_no_sms_permission">Δεν υπάρχει άδεια αποστολής SMS. Παραχώρησέ την από τις ρυθμίσεις ή κάλεσε το 112.</string>
+    <string name="alert_no_recipients">Δεν υπάρχουν παραλήπτες. Ενεργοποίησε το 112 ή πρόσθεσε επαφές.</string>
+    <string name="alert_source_checkin">Ενεργοποιήθηκε από χαμένο check-in</string>
+    <string name="alert_open_settings">Ρυθμίσεις εφαρμογής</string>
+    <string name="alert_status_waiting_location">Αναμονή για ακριβές στίγμα…</string>
+
+    <!-- notifications -->
+    <string name="channel_alerts">Συναγερμοί SOS</string>
+    <string name="channel_checkin">Check-in</string>
+    <string name="channel_tracking">Παρακολούθηση</string>
+    <string name="channel_status">Κατάσταση αποστολής</string>
+    <string name="notif_countdown_title">AEGIS SOS σε %1$d δευτ.</string>
+    <string name="notif_countdown_text">Πάτησε ΑΚΥΡΩΣΗ αν ενεργοποιήθηκε κατά λάθος.</string>
+    <string name="notif_locating_title">AEGIS: Εύρεση τοποθεσίας</string>
+    <string name="notif_sending_title">AEGIS: Αποστολή SOS</string>
+    <string name="notif_done_title">AEGIS: Το SOS στάλθηκε</string>
+    <string name="notif_done_text">%1$d μηνύματα προς %2$s</string>
+    <string name="notif_failed_title">AEGIS: Αποτυχία αποστολής</string>
+    <string name="notif_action_cancel">Ακύρωση</string>
+    <string name="notif_action_send_now">Αποστολή τώρα</string>
+    <string name="notif_action_call">Κλήση 112</string>
+    <string name="notif_action_ok">Είμαι ΟΚ</string>
+    <string name="notif_action_stop">Διακοπή</string>
+
+    <!-- SMS content -->
+    <string name="sms_112_prefix">SOS 112</string>
+    <string name="sms_name">Όνομα: %1$s</string>
+    <string name="sms_location">Θέση: %1$s (±%2$dm)</string>
+    <string name="sms_location_stale">Τελευταία γνωστή θέση (πριν %1$d λεπτά): %2$s</string>
+    <string name="sms_location_unknown">Θέση: ΜΗ ΔΙΑΘΕΣΙΜΗ</string>
+    <string name="sms_time">Ώρα %1$s</string>
+    <string name="sms_note">Σημ: %1$s</string>
+    <string name="sms_contacts_header">AEGIS ΣΥΝΑΓΕΡΜΟΣ από %1$s</string>
+    <string name="sms_contacts_112_sent">Ενημερώθηκε και το 112.</string>
+    <string name="sms_medical">Ιατρικά: %1$s</string>
+    <string name="sms_blood">Ομάδα αίματος %1$s</string>
+    <string name="sms_allergies">Αλλεργίες: %1$s</string>
+    <string name="sms_medications">Φάρμακα: %1$s</string>
+    <string name="sms_conditions">Παθήσεις: %1$s</string>
+    <string name="sms_safe">AEGIS: %1$s - ΕΙΜΑΙ ΑΣΦΑΛΗΣ. %2$s %3$s</string>
+    <string name="sms_test_prefix">[ΔΟΚΙΜΗ]</string>
+    <string name="sms_unknown_name">Χρήστης AEGIS</string>
+
+    <!-- contacts -->
+    <string name="contacts_title">Επαφές έκτακτης ανάγκης</string>
+    <string name="contacts_desc">Θα λάβουν SMS με την τοποθεσία και τα ιατρικά σου στοιχεία. Έως %1$d επαφές.</string>
+    <string name="contacts_empty">Δεν έχεις προσθέσει επαφές.\nΠάτησε + για να προσθέσεις.</string>
+    <string name="contacts_add">Προσθήκη επαφής</string>
+    <string name="contacts_pick">Από τις επαφές του τηλεφώνου</string>
+    <string name="contacts_name">Όνομα</string>
+    <string name="contacts_phone">Τηλέφωνο (π.χ. 69XXXXXXXX)</string>
+    <string name="contacts_save">Αποθήκευση</string>
+    <string name="contacts_cancel">Άκυρο</string>
+    <string name="contacts_delete">Διαγραφή</string>
+    <string name="contacts_delete_confirm">Να διαγραφεί η επαφή %1$s;</string>
+    <string name="contacts_invalid">Συμπλήρωσε όνομα και έγκυρο τηλέφωνο.</string>
+    <string name="contacts_max">Έφτασες το μέγιστο αριθμό επαφών.</string>
+    <string name="contacts_test_sms">Δοκιμαστικό SMS</string>
+    <string name="contacts_test_sent">Στάλθηκε δοκιμαστικό SMS στον/στην %1$s</string>
+    <string name="contacts_test_confirm">Να σταλεί δοκιμαστικό SMS με την τοποθεσία σου στον/στην %1$s;</string>
+
+    <!-- profile -->
+    <string name="profile_title">Προφίλ &amp; ιατρικά στοιχεία</string>
+    <string name="profile_desc">Το όνομα μπαίνει στο μήνυμα προς το 112. Τα ιατρικά στοιχεία πηγαίνουν μόνο στις επαφές σου (ρυθμίζεται).</string>
+    <string name="profile_name">Ονοματεπώνυμο</string>
+    <string name="profile_blood">Ομάδα αίματος</string>
+    <string name="profile_allergies">Αλλεργίες</string>
+    <string name="profile_medications">Φάρμακα</string>
+    <string name="profile_conditions">Παθήσεις / ιατρικό ιστορικό</string>
+    <string name="profile_notes">Άλλες πληροφορίες (διεύθυνση, γλώσσα, κ.λπ.)</string>
+    <string name="profile_save">Αποθήκευση</string>
+    <string name="profile_saved">Το προφίλ αποθηκεύτηκε</string>
+    <string name="profile_preview">Προεπισκόπηση μηνυμάτων</string>
+    <string name="profile_preview_112">Μήνυμα προς 112</string>
+    <string name="profile_preview_contacts">Μήνυμα προς επαφές</string>
+
+    <!-- history -->
+    <string name="history_title">Ιστορικό συναγερμών</string>
+    <string name="history_empty">Δεν έχει σταλεί κανένας συναγερμός.</string>
+    <string name="history_clear">Καθαρισμός ιστορικού</string>
+    <string name="history_clear_confirm">Να διαγραφεί όλο το ιστορικό;</string>
+    <string name="history_open_map">Χάρτης</string>
+    <string name="history_status_pending">Εκκρεμεί</string>
+    <string name="history_status_sent">Στάλθηκε</string>
+    <string name="history_status_delivered">Παραδόθηκε</string>
+    <string name="history_status_failed">Απέτυχε</string>
+    <string name="history_no_location">Χωρίς τοποθεσία</string>
+    <string name="history_stale">τελευταία γνωστή θέση</string>
+    <string name="history_source_manual">Χειροκίνητα</string>
+    <string name="history_source_checkin">Check-in</string>
+    <string name="history_source_tile">Γρήγορη ρύθμιση</string>
+    <string name="history_source_shortcut">Συντόμευση</string>
+    <string name="history_source_safe">Είμαι ασφαλής</string>
+    <string name="history_source_tracking">Παρακολούθηση</string>
+    <string name="history_source_test">Δοκιμή</string>
+
+    <!-- settings -->
+    <string name="settings_title">Ρυθμίσεις</string>
+    <string name="settings_cat_send">Αποστολή συναγερμού</string>
+    <string name="settings_send_112">Αποστολή SMS στο 112</string>
+    <string name="settings_send_112_sum">Ευρωπαϊκός αριθμός έκτακτης ανάγκης. Το 112 στην Ελλάδα δέχεται SMS.</string>
+    <string name="settings_send_contacts">Αποστολή στις επαφές μου</string>
+    <string name="settings_send_contacts_sum">Οι επαφές λαμβάνουν πλήρες μήνυμα με ιατρικά στοιχεία.</string>
+    <string name="settings_countdown">Αντίστροφη μέτρηση πριν την αποστολή</string>
+    <string name="settings_location_wait">Μέγιστη αναμονή για GPS (δευτ.)</string>
+    <string name="settings_include_name">Όνομα στο μήνυμα προς 112</string>
+    <string name="settings_include_medical">Ιατρικά στοιχεία προς επαφές</string>
+    <string name="settings_auto_call">Αυτόματη κλήση 112 μετά το SMS</string>
+    <string name="settings_auto_call_sum">Απαιτεί άδεια κλήσης. Χρήσιμο αν μπορείς να μιλήσεις.</string>
+    <string name="settings_discreet">Διακριτική λειτουργία</string>
+    <string name="settings_discreet_sum">Χωρίς δόνηση και ήχο κατά την αποστολή.</string>
+    <string name="settings_cat_checkin">Check-in</string>
+    <string name="settings_checkin_default">Προεπιλεγμένη διάρκεια</string>
+    <string name="settings_checkin_grace">Περιθώριο ακύρωσης μετά τη λήξη</string>
+    <string name="settings_cat_tracking">Ζωντανή παρακολούθηση</string>
+    <string name="settings_tracking_interval">Διάστημα αποστολής</string>
+    <string name="settings_cat_test">Δοκιμή</string>
+    <string name="settings_test_mode">Δοκιμαστική λειτουργία</string>
+    <string name="settings_test_mode_sum">Όλα τα μηνύματα πηγαίνουν μόνο στον δοκιμαστικό αριθμό. ΠΟΤΕ μη δοκιμάζεις με το πραγματικό 112.</string>
+    <string name="settings_test_number">Δοκιμαστικός αριθμός</string>
+    <string name="settings_cat_system">Σύστημα</string>
+    <string name="settings_battery">Εξαίρεση από εξοικονόμηση μπαταρίας</string>
+    <string name="settings_battery_sum">Ώστε το check-in και η παρακολούθηση να μη σταματούν.</string>
+    <string name="settings_app_info">Άδειες &amp; πληροφορίες εφαρμογής</string>
+    <string name="settings_about">Σχετικά</string>
+    <string name="settings_about_sum">AEGIS %1$s · Close Protection Alert</string>
+    <string name="settings_about_text">Το AEGIS στέλνει SMS έκτακτης ανάγκης με την ακριβή τοποθεσία σου στο 112 και στις επαφές σου.\n\nΣυμβουλές:\n• Δοκίμασε πρώτα με τη Δοκιμαστική λειτουργία και τον δικό σου αριθμό.\n• Πρόσθεσε το πλακίδιο «AEGIS SOS» στις Γρήγορες ρυθμίσεις.\n• Κράτησε πατημένο το εικονίδιο της εφαρμογής για τη συντόμευση SOS.\n• Το SMS προς 112 είναι συμπληρωματικό: αν μπορείς, κάλεσε.\n\nΗ εφαρμογή δεν στέλνει δεδομένα πουθενά αλλού εκτός από τα SMS που ορίζεις εσύ.</string>
+
+    <string name="unit_seconds">%1$d δευτ.</string>
+    <string name="ok">ΟΚ</string>
+    <string name="cancel">Άκυρο</string>
+    <string name="yes">Ναι</string>
+    <string name="delete">Διαγραφή</string>
+    <string name="permission_denied_sms">Χωρίς άδεια SMS η εφαρμογή δεν μπορεί να στείλει συναγερμό.</string>
+    <string name="permission_background_location">Για το check-in όταν η οθόνη είναι κλειστή, επίλεξε «Να επιτρέπεται πάντα» στην τοποθεσία.</string>
+    <string name="recipient_112">112</string>
+</resources>

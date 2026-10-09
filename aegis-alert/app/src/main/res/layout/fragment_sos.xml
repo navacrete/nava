@@ -1,0 +1,555 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.core.widget.NestedScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:fillViewport="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="16dp">
+
+        <!-- header -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+            <ImageView
+                android:layout_width="44dp"
+                android:layout_height="44dp"
+                android:contentDescription="@string/app_name"
+                android:src="@drawable/ic_shield"
+                app:tint="@color/gold" />
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="12dp"
+                android:layout_weight="1"
+                android:orientation="vertical">
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:letterSpacing="0.2"
+                    android:text="@string/app_name"
+                    android:textColor="@color/gold"
+                    android:textSize="22sp"
+                    android:textStyle="bold" />
+                <TextView
+                    style="@style/Text.Aegis.Caption"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="@string/app_tagline" />
+            </LinearLayout>
+            <com.google.android.material.chip.Chip
+                android:id="@+id/chipStatus"
+                style="@style/Widget.Material3.Chip.Assist"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:clickable="false"
+                android:text="@string/sos_header_status_ready"
+                android:textColor="@color/text"
+                app:chipBackgroundColor="@color/navy_700"
+                app:chipIcon="@drawable/ic_check"
+                app:chipIconTint="@color/green" />
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/txtTestBanner"
+            style="@style/Text.Aegis.Body"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:background="@drawable/bg_banner_test"
+            android:drawablePadding="8dp"
+            android:gravity="center_vertical"
+            android:padding="12dp"
+            android:textColor="@color/amber"
+            android:visibility="gone"
+            app:drawableStartCompat="@drawable/ic_warning"
+            app:drawableTint="@color/amber" />
+
+        <!-- readiness -->
+        <com.google.android.material.card.MaterialCardView
+            android:id="@+id/cardReadiness"
+            style="@style/Widget.Aegis.Card"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp">
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical">
+                <TextView
+                    style="@style/Text.Aegis.Title"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="4dp"
+                    android:text="@string/sos_readiness_title" />
+            <LinearLayout
+                android:id="@+id/row_sms"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:minHeight="40dp"
+                android:orientation="horizontal">
+                <View
+                    android:id="@+id/dot_sms"
+                    android:layout_width="10dp"
+                    android:layout_height="10dp"
+                    android:layout_marginEnd="12dp"
+                    android:background="@drawable/bg_status_dot" />
+                <TextView
+                    android:id="@+id/txt_sms"
+                    style="@style/Text.Aegis.Body"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="@string/sos_perm_sms" />
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btn_sms"
+                    style="@style/Widget.Material3.Button.TextButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:minHeight="36dp"
+                    android:text="@string/sos_grant" />
+            </LinearLayout>
+            <LinearLayout
+                android:id="@+id/row_location"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:minHeight="40dp"
+                android:orientation="horizontal">
+                <View
+                    android:id="@+id/dot_location"
+                    android:layout_width="10dp"
+                    android:layout_height="10dp"
+                    android:layout_marginEnd="12dp"
+                    android:background="@drawable/bg_status_dot" />
+                <TextView
+                    android:id="@+id/txt_location"
+                    style="@style/Text.Aegis.Body"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="@string/sos_perm_location" />
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btn_location"
+                    style="@style/Widget.Material3.Button.TextButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:minHeight="36dp"
+                    android:text="@string/sos_grant" />
+            </LinearLayout>
+            <LinearLayout
+                android:id="@+id/row_gps"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:minHeight="40dp"
+                android:orientation="horizontal">
+                <View
+                    android:id="@+id/dot_gps"
+                    android:layout_width="10dp"
+                    android:layout_height="10dp"
+                    android:layout_marginEnd="12dp"
+                    android:background="@drawable/bg_status_dot" />
+                <TextView
+                    android:id="@+id/txt_gps"
+                    style="@style/Text.Aegis.Body"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="@string/sos_gps_enabled" />
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btn_gps"
+                    style="@style/Widget.Material3.Button.TextButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:minHeight="36dp"
+                    android:text="@string/sos_fix" />
+            </LinearLayout>
+            <LinearLayout
+                android:id="@+id/row_notif"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:minHeight="40dp"
+                android:orientation="horizontal">
+                <View
+                    android:id="@+id/dot_notif"
+                    android:layout_width="10dp"
+                    android:layout_height="10dp"
+                    android:layout_marginEnd="12dp"
+                    android:background="@drawable/bg_status_dot" />
+                <TextView
+                    android:id="@+id/txt_notif"
+                    style="@style/Text.Aegis.Body"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="@string/sos_perm_notifications" />
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btn_notif"
+                    style="@style/Widget.Material3.Button.TextButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:minHeight="36dp"
+                    android:text="@string/sos_grant" />
+            </LinearLayout>
+            <LinearLayout
+                android:id="@+id/row_contacts"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:minHeight="40dp"
+                android:orientation="horizontal">
+                <View
+                    android:id="@+id/dot_contacts"
+                    android:layout_width="10dp"
+                    android:layout_height="10dp"
+                    android:layout_marginEnd="12dp"
+                    android:background="@drawable/bg_status_dot" />
+                <TextView
+                    android:id="@+id/txt_contacts"
+                    style="@style/Text.Aegis.Body"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="@string/sos_contacts_set" />
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btn_contacts"
+                    style="@style/Widget.Material3.Button.TextButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:minHeight="36dp"
+                    android:text="@string/sos_fix" />
+            </LinearLayout>
+            <LinearLayout
+                android:id="@+id/row_battery"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:gravity="center_vertical"
+                android:minHeight="40dp"
+                android:orientation="horizontal">
+                <View
+                    android:id="@+id/dot_battery"
+                    android:layout_width="10dp"
+                    android:layout_height="10dp"
+                    android:layout_marginEnd="12dp"
+                    android:background="@drawable/bg_status_dot" />
+                <TextView
+                    android:id="@+id/txt_battery"
+                    style="@style/Text.Aegis.Body"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="@string/sos_battery" />
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btn_battery"
+                    style="@style/Widget.Material3.Button.TextButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:minHeight="36dp"
+                    android:text="@string/sos_fix" />
+            </LinearLayout>
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+        <!-- type -->
+        <com.google.android.material.card.MaterialCardView
+            style="@style/Widget.Aegis.Card"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp">
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical">
+                <TextView
+                    style="@style/Text.Aegis.Title"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/sos_type_title" />
+                <com.google.android.material.chip.ChipGroup
+                    android:id="@+id/chipTypes"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    app:chipSpacingHorizontal="8dp"
+                    app:selectionRequired="true"
+                    app:singleSelection="true">
+                    <com.google.android.material.chip.Chip
+                        android:id="@+id/chipGeneral"
+                        style="@style/Widget.Aegis.Chip"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:checked="true"
+                        android:text="@string/type_general"
+                        app:chipIcon="@drawable/ic_sos" />
+                    <com.google.android.material.chip.Chip
+                        android:id="@+id/chipMedical"
+                        style="@style/Widget.Aegis.Chip"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/type_medical"
+                        app:chipIcon="@drawable/ic_medical" />
+                    <com.google.android.material.chip.Chip
+                        android:id="@+id/chipFire"
+                        style="@style/Widget.Aegis.Chip"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/type_fire"
+                        app:chipIcon="@drawable/ic_fire" />
+                    <com.google.android.material.chip.Chip
+                        android:id="@+id/chipPolice"
+                        style="@style/Widget.Aegis.Chip"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/type_police"
+                        app:chipIcon="@drawable/ic_police" />
+                    <com.google.android.material.chip.Chip
+                        android:id="@+id/chipThreat"
+                        style="@style/Widget.Aegis.Chip"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/type_threat"
+                        app:chipIcon="@drawable/ic_threat" />
+                    <com.google.android.material.chip.Chip
+                        android:id="@+id/chipAccident"
+                        style="@style/Widget.Aegis.Chip"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/type_accident"
+                        app:chipIcon="@drawable/ic_car" />
+                </com.google.android.material.chip.ChipGroup>
+                <com.google.android.material.textfield.TextInputLayout
+                    style="@style/Widget.Material3.TextInputLayout.OutlinedBox.Dense"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:hint="@string/sos_note_hint">
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/edtNote"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:inputType="textCapSentences"
+                        android:maxLength="80"
+                        android:maxLines="2" />
+                </com.google.android.material.textfield.TextInputLayout>
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+        <!-- SOS button -->
+        <FrameLayout
+            android:id="@+id/btnSos"
+            android:layout_width="210dp"
+            android:layout_height="210dp"
+            android:layout_gravity="center_horizontal"
+            android:layout_marginTop="24dp"
+            android:background="@drawable/bg_sos_button"
+            android:clickable="true"
+            android:focusable="true">
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center"
+                android:letterSpacing="0.15"
+                android:text="@string/sos_button"
+                android:textColor="@android:color/white"
+                android:textSize="52sp"
+                android:textStyle="bold" />
+        </FrameLayout>
+        <TextView
+            style="@style/Text.Aegis.Caption"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:gravity="center"
+            android:text="@string/sos_button_hint" />
+        <TextView
+            android:id="@+id/txtRecipients"
+            style="@style/Text.Aegis.Body"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:gravity="center"
+            android:textColor="@color/gold" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:orientation="horizontal">
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnCall112"
+                style="@style/Widget.Material3.Button.OutlinedButton"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginEnd="6dp"
+                android:layout_weight="1"
+                android:text="@string/sos_call_112"
+                app:icon="@drawable/ic_phone" />
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnSafe"
+                style="@style/Widget.Material3.Button.OutlinedButton"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="6dp"
+                android:layout_weight="1"
+                android:text="@string/sos_im_safe"
+                app:icon="@drawable/ic_check" />
+        </LinearLayout>
+
+        <!-- check-in -->
+        <com.google.android.material.card.MaterialCardView
+            style="@style/Widget.Aegis.Card"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp">
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical">
+                <TextView
+                    style="@style/Text.Aegis.Title"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:drawablePadding="8dp"
+                    android:gravity="center_vertical"
+                    android:text="@string/checkin_title"
+                    app:drawableStartCompat="@drawable/ic_timer"
+                    app:drawableTint="@color/gold" />
+                <TextView
+                    style="@style/Text.Aegis.Caption"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:text="@string/checkin_desc" />
+                <com.google.android.material.chip.ChipGroup
+                    android:id="@+id/chipCheckinDuration"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    app:selectionRequired="true"
+                    app:singleSelection="true">
+                    <com.google.android.material.chip.Chip
+                        android:id="@+id/chipMin15"
+                        style="@style/Widget.Aegis.Chip"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/checkin_min_15"
+                        app:chipIconVisible="false" />
+                    <com.google.android.material.chip.Chip
+                        android:id="@+id/chipMin30"
+                        style="@style/Widget.Aegis.Chip"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:checked="true"
+                        android:text="@string/checkin_min_30"
+                        app:chipIconVisible="false" />
+                    <com.google.android.material.chip.Chip
+                        android:id="@+id/chipMin60"
+                        style="@style/Widget.Aegis.Chip"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/checkin_min_60"
+                        app:chipIconVisible="false" />
+                    <com.google.android.material.chip.Chip
+                        android:id="@+id/chipMin120"
+                        style="@style/Widget.Aegis.Chip"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/checkin_min_120"
+                        app:chipIconVisible="false" />
+                </com.google.android.material.chip.ChipGroup>
+                <TextView
+                    android:id="@+id/txtCheckinStatus"
+                    style="@style/Text.Aegis.Body"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:text="@string/checkin_inactive"
+                    android:textColor="@color/gold"
+                    android:textSize="18sp"
+                    android:textStyle="bold" />
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:orientation="horizontal">
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnCheckinStart"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="@string/checkin_start" />
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnCheckinOk"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="6dp"
+                        android:layout_weight="1"
+                        android:text="@string/checkin_ok"
+                        android:visibility="gone"
+                        app:backgroundTint="@color/green" />
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btnCheckinStop"
+                        style="@style/Widget.Material3.Button.OutlinedButton"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginStart="6dp"
+                        android:text="@string/checkin_stop"
+                        android:visibility="gone" />
+                </LinearLayout>
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+        <!-- tracking -->
+        <com.google.android.material.card.MaterialCardView
+            style="@style/Widget.Aegis.Card"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:layout_marginBottom="16dp">
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical">
+                <TextView
+                    style="@style/Text.Aegis.Title"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:drawablePadding="8dp"
+                    android:gravity="center_vertical"
+                    android:text="@string/tracking_title"
+                    app:drawableStartCompat="@drawable/ic_track"
+                    app:drawableTint="@color/gold" />
+                <TextView
+                    style="@style/Text.Aegis.Caption"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:text="@string/tracking_desc" />
+                <TextView
+                    android:id="@+id/txtTrackingStatus"
+                    style="@style/Text.Aegis.Body"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:text="@string/tracking_inactive"
+                    android:textColor="@color/gold"
+                    android:textStyle="bold" />
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnTrackingToggle"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:text="@string/tracking_start" />
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+    </LinearLayout>
+</androidx.core.widget.NestedScrollView>

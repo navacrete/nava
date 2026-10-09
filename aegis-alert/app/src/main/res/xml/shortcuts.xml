@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut
+        android:shortcutId="sos_now"
+        android:enabled="true"
+        android:icon="@drawable/ic_sos"
+        android:shortcutShortLabel="@string/shortcut_sos_short"
+        android:shortcutLongLabel="@string/shortcut_sos_long">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetPackage="gr.aegis.protect"
+            android:targetClass="gr.aegis.protect.alert.AlertActivity">
+            <extra android:name="source" android:value="shortcut" />
+        </intent>
+    </shortcut>
+    <shortcut
+        android:shortcutId="call_112"
+        android:enabled="true"
+        android:icon="@drawable/ic_phone"
+        android:shortcutShortLabel="@string/shortcut_call_short"
+        android:shortcutLongLabel="@string/shortcut_call_long">
+        <intent
+            android:action="android.intent.action.DIAL"
+            android:data="tel:112" />
+    </shortcut>
+</shortcuts>

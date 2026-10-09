@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.Aegis" parent="Theme.Material3.Dark.NoActionBar">
+        <item name="colorPrimary">@color/gold</item>
+        <item name="colorOnPrimary">@color/navy_900</item>
+        <item name="colorPrimaryContainer">@color/navy_700</item>
+        <item name="colorOnPrimaryContainer">@color/text</item>
+        <item name="colorSecondary">@color/gold</item>
+        <item name="colorOnSecondary">@color/navy_900</item>
+        <item name="colorSecondaryContainer">@color/navy_600</item>
+        <item name="colorOnSecondaryContainer">@color/text</item>
+        <item name="colorSurface">@color/navy_800</item>
+        <item name="colorOnSurface">@color/text</item>
+        <item name="colorSurfaceVariant">@color/navy_700</item>
+        <item name="colorOnSurfaceVariant">@color/text_muted</item>
+        <item name="colorSurfaceContainer">@color/navy_800</item>
+        <item name="colorSurfaceContainerHigh">@color/navy_700</item>
+        <item name="colorSurfaceContainerLow">@color/navy_900</item>
+        <item name="colorOutline">@color/navy_600</item>
+        <item name="colorError">@color/sos_red</item>
+        <item name="colorOnError">@color/text</item>
+        <item name="android:colorBackground">@color/navy_900</item>
+        <item name="android:windowBackground">@color/navy_900</item>
+        <item name="android:statusBarColor">@color/navy_900</item>
+        <item name="android:navigationBarColor">@color/navy_800</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="preferenceTheme">@style/PreferenceThemeOverlay</item>
+    </style>
+
+    <style name="Theme.Aegis.Alert">
+        <item name="android:windowBackground">@color/sos_red_deep</item>
+        <item name="android:statusBarColor">@color/sos_red_deep</item>
+        <item name="android:navigationBarColor">@color/sos_red_deep</item>
+        <item name="colorPrimary">@color/text</item>
+        <item name="colorOnPrimary">@color/sos_red_dark</item>
+    </style>
+
+    <style name="Widget.Aegis.Card" parent="Widget.Material3.CardView.Elevated">
+        <item name="cardBackgroundColor">@color/navy_800</item>
+        <item name="cardCornerRadius">18dp</item>
+        <item name="cardElevation">0dp</item>
+        <item name="strokeColor">@color/navy_600</item>
+        <item name="strokeWidth">1dp</item>
+        <item name="contentPadding">16dp</item>
+    </style>
+
+    <style name="Text.Aegis.Title" parent="TextAppearance.Material3.TitleMedium">
+        <item name="android:textColor">@color/text</item>
+        <item name="android:textStyle">bold</item>
+    </style>
+
+    <style name="Text.Aegis.Caption" parent="TextAppearance.Material3.BodySmall">
+        <item name="android:textColor">@color/text_muted</item>
+    </style>
+
+    <style name="Text.Aegis.Body" parent="TextAppearance.Material3.BodyMedium">
+        <item name="android:textColor">@color/text</item>
+    </style>
+
+    <style name="Widget.Aegis.Chip" parent="Widget.Material3.Chip.Filter">
+        <item name="chipBackgroundColor">@color/chip_bg</item>
+        <item name="android:textColor">@color/chip_text</item>
+        <item name="chipStrokeColor">@color/chip_stroke</item>
+        <item name="chipStrokeWidth">1dp</item>
+        <item name="checkedIconVisible">false</item>
+        <item name="chipIconVisible">true</item>
+        <item name="chipIconTint">@color/chip_text</item>
+    </style>
+</resources>

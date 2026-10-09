@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="navy_900">#070F1F</color>
+    <color name="navy_800">#0E1B33</color>
+    <color name="navy_700">#16284A</color>
+    <color name="navy_600">#20365F</color>
+    <color name="gold">#D4AF37</color>
+    <color name="gold_dim">#8A7224</color>
+    <color name="sos_red">#E53935</color>
+    <color name="sos_red_dark">#8E1B1B</color>
+    <color name="sos_red_deep">#4A0D0D</color>
+    <color name="text">#F3F5F9</color>
+    <color name="text_muted">#9AA6BF</color>
+    <color name="green">#43A047</color>
+    <color name="amber">#FFB300</color>
+    <color name="blue">#1E88E5</color>
+    <color name="orange">#FB8C00</color>
+    <color name="purple">#8E24AA</color>
+    <color name="ic_launcher_background">#0E1B33</color>
+</resources>
