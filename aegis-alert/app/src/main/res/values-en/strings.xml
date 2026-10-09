@@ -214,7 +214,15 @@
     <string name="permission_background_location">For check-in while the screen is off, choose "Allow all the time" for location.</string>
     <string name="recipient_112">112</string>
     <string name="restricted_title">Restricted SMS permission</string>
-    <string name="restricted_text">Android blocks the SMS permission for apps installed outside the Play Store. Unlock it like this:\n\n1. Tap "App info" below.\n2. Tap the three dots ⋮ at the top right.\n3. Choose "Allow restricted settings" and confirm.\n4. Go to Permissions → SMS → Allow.\n\nIf you do not see the option under the three dots, tap "Grant" on the SMS row first and try again, or reinstall the APK from the Files app.\n\nWithout the permission SOS still works: it opens the Messages app with the text ready and you just tap Send.</string>
+    <string name="restricted_text">Android 15+ permanently blocks the SMS permission for apps installed from a browser or a file (Enhanced Confirmation Mode). No in-app setting can change this.
+
+For fully automatic sending, reinstall AEGIS via ADB:
+1. Enable Developer options and USB debugging.
+2. Uninstall AEGIS.
+3. From a computer: adb install AEGIS.apk (or without a computer via the Shizuku app).
+4. Open AEGIS and grant the SMS permission.
+
+Without the permission SOS still works: it opens the Messages app with 112 and the location text ready and you just tap Send.</string>
     <string name="restricted_open">App info</string>
     <string name="alert_title_manual">SEND VIA MESSAGING APP</string>
     <string name="alert_manual_text">No SMS permission. The Messages app opened with the text ready: just tap Send. Then tap the second button for your contacts.</string>

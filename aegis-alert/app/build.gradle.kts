@@ -13,8 +13,8 @@ android {
         applicationId = "gr.aegis.protect"
         minSdk = 24
         targetSdk = 35
-        versionCode = 3
-        versionName = "1.1.0"
+        versionCode = 4
+        versionName = "1.1.1"
     }
 
     // Dedicated keystore so every build installs over the previous one.
