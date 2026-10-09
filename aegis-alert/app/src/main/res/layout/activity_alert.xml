@@ -134,6 +134,34 @@
                 android:contentDescription="@string/recipient_112"
                 android:src="@drawable/ic_112_badge" />
             <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnManual112"
+                android:layout_width="match_parent"
+                android:layout_height="64dp"
+                android:layout_marginBottom="12dp"
+                android:text="@string/alert_manual_112"
+                android:textColor="@color/sos_red_dark"
+                android:textSize="18sp"
+                android:textStyle="bold"
+                android:visibility="gone"
+                app:backgroundTint="@android:color/white"
+                app:cornerRadius="20dp"
+                app:icon="@drawable/ic_send"
+                app:iconTint="@color/sos_red_dark" />
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnManualContacts"
+                android:layout_width="match_parent"
+                android:layout_height="64dp"
+                android:layout_marginBottom="12dp"
+                android:text="@string/alert_manual_contacts"
+                android:textColor="@color/sos_red_dark"
+                android:textSize="18sp"
+                android:textStyle="bold"
+                android:visibility="gone"
+                app:backgroundTint="@android:color/white"
+                app:cornerRadius="20dp"
+                app:icon="@drawable/ic_contacts"
+                app:iconTint="@color/sos_red_dark" />
+            <com.google.android.material.button.MaterialButton
                 android:id="@+id/btnCall"
                 android:layout_width="match_parent"
                 android:layout_height="64dp"

@@ -42,6 +42,11 @@ import java.util.UUID
 
 class SosFragment : Fragment() {
 
+    companion object {
+        /** Show the restricted-permission help once per app process, not on every tab open. */
+        private var restrictedHelpShown = false
+    }
+
     private var _b: FragmentSosBinding? = null
     private val b get() = _b!!
     private lateinit var prefs: Prefs
@@ -54,8 +59,9 @@ class SosFragment : Fragment() {
             // SMS asked but still denied without a rationale prompt: the OS "restricted settings"
             // block for side-loaded apps, or a permanent denial. Explain how to unlock it.
             if (result.containsKey(Manifest.permission.SEND_SMS) && !Perms.sms(requireContext()) &&
-                !shouldShowRequestPermissionRationale(Manifest.permission.SEND_SMS)
+                !shouldShowRequestPermissionRationale(Manifest.permission.SEND_SMS) && !restrictedHelpShown
             ) {
+                restrictedHelpShown = true
                 showRestrictedSmsHelp()
             }
         }
@@ -80,7 +86,10 @@ class SosFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
 
         // readiness actions
-        b.btnSms.setOnClickListener { permissionLauncher.launch(arrayOf(Manifest.permission.SEND_SMS)) }
+        b.btnSms.setOnClickListener {
+            restrictedHelpShown = false
+            permissionLauncher.launch(arrayOf(Manifest.permission.SEND_SMS))
+        }
         b.btnLocation.setOnClickListener {
             permissionLauncher.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION))
         }
@@ -290,10 +299,6 @@ class SosFragment : Fragment() {
             Toast.makeText(ctx, R.string.sos_im_safe_no_contacts, Toast.LENGTH_SHORT).show()
             return
         }
-        if (!Perms.sms(ctx)) {
-            permissionLauncher.launch(arrayOf(Manifest.permission.SEND_SMS))
-            return
-        }
         AlertDialog.Builder(ctx)
             .setTitle(R.string.sos_im_safe)
             .setMessage(R.string.sos_im_safe)
@@ -322,6 +327,14 @@ class SosFragment : Fragment() {
                     accuracy = result.location?.accuracy, stale = result.stale, message = text,
                     recipients = targets.toMutableList()
                 )
+                if (!Perms.sms(ctx)) {
+                    // No permission: hand it to the messaging app with everything pre-filled.
+                    _b?.btnSafe?.isEnabled = true
+                    val intent = Intent(Intent.ACTION_SENDTO, Uri.parse("smsto:" + targets.joinToString(";") { it.phone }))
+                        .putExtra("sms_body", text)
+                    try { startActivity(intent) } catch (e: Exception) { }
+                    return@start
+                }
                 var sent = 0
                 targets.forEach { rc ->
                     val o = SmsSender.send(ctx, record.id, rc.phone, text)

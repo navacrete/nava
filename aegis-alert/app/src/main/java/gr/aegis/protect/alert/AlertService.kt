@@ -205,11 +205,6 @@ class AlertService : Service() {
         val loc: Location? = result.location
         val stale = result.stale
 
-        if (!Perms.sms(this)) {
-            fail(AlertState.Reason.NO_SMS_PERMISSION)
-            return
-        }
-
         val profile = Profile.load(this)
         val recipients = mutableListOf<Recipient>()
         val messages = mutableMapOf<String, String>()
@@ -241,6 +236,11 @@ class AlertService : Service() {
 
         if (recipients.isEmpty()) {
             fail(AlertState.Reason.NO_RECIPIENTS)
+            return
+        }
+
+        if (!Perms.sms(this)) {
+            manualSend(loc, stale, recipients, messages, send112, text112, textContacts)
             return
         }
 
@@ -279,6 +279,54 @@ class AlertService : Service() {
             AlertState.Done(type, source, record.id, recipients.map { it.name }, sentCount, loc, stale)
         )
         showResultNotification(sentCount, recipients.joinToString(", ") { it.name })
+        finish(removeNotification = true)
+    }
+
+    /** Without SEND_SMS the alert is handed to the messaging app with everything pre-filled. */
+    private fun manualSend(
+        loc: Location?,
+        stale: Boolean,
+        recipients: List<Recipient>,
+        messages: Map<String, String>,
+        send112: Boolean,
+        text112: String,
+        textContacts: String
+    ) {
+        recipients.forEach { it.status = SmsStatus.MANUAL }
+        val record = AlertRecord(
+            id = UUID.randomUUID().toString(),
+            time = System.currentTimeMillis(),
+            typeCode = type.code,
+            source = if (prefs.testModeActive) "test" else source,
+            lat = loc?.latitude,
+            lon = loc?.longitude,
+            accuracy = loc?.accuracy,
+            stale = stale,
+            message = messages[recipients.first().phone] ?: "",
+            recipients = recipients.toMutableList()
+        )
+        HistoryStore.add(this, record)
+        phase = Phase.DONE
+        val contactPhones = recipients.map { it.phone }.filter { it != Phone.EMERGENCY_NUMBER }
+        val state = if (prefs.testModeActive) {
+            AlertState.ManualSend(type, source, null, messages[recipients.first().phone], contactPhones, loc, stale)
+        } else {
+            AlertState.ManualSend(
+                type, source,
+                if (send112) text112 else null,
+                if (contactPhones.isNotEmpty()) textContacts else null,
+                contactPhones, loc, stale
+            )
+        }
+        AlertBus.state.postValue(state)
+        val n = baseBuilder(Notifications.CH_ALERTS)
+            .setContentTitle(getString(R.string.manual_notif_title))
+            .setContentText(getString(R.string.manual_notif_text))
+            .setStyle(NotificationCompat.BigTextStyle().bigText(getString(R.string.manual_notif_text)))
+            .addAction(R.drawable.ic_phone, getString(R.string.notif_action_call), Phone.dial112PendingIntent(this))
+            .setAutoCancel(true)
+            .build()
+        safeNotify(Notifications.ID_ALERT_RESULT, n)
         finish(removeNotification = true)
     }
 

@@ -18,6 +18,16 @@ sealed class AlertState {
         val location: Location?,
         val stale: Boolean
     ) : AlertState()
+    /** No SEND_SMS permission: the messaging app is opened with everything pre-filled. */
+    data class ManualSend(
+        val type: EmergencyType,
+        val source: String,
+        val message112: String?,
+        val messageContacts: String?,
+        val contactPhones: List<String>,
+        val location: Location?,
+        val stale: Boolean
+    ) : AlertState()
     data class Cancelled(val type: EmergencyType) : AlertState()
     data class Failed(val type: EmergencyType, val reason: Reason) : AlertState()
 

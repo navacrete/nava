@@ -5,7 +5,7 @@ import androidx.lifecycle.MutableLiveData
 import org.json.JSONArray
 import org.json.JSONObject
 
-enum class SmsStatus { PENDING, SENT, DELIVERED, FAILED }
+enum class SmsStatus { PENDING, SENT, DELIVERED, FAILED, MANUAL }
 
 data class Recipient(
     val phone: String,

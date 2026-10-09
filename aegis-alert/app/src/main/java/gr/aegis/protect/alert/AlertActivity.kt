@@ -1,6 +1,7 @@
 package gr.aegis.protect.alert
 
 import android.content.Intent
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.view.View
@@ -33,6 +34,7 @@ class AlertActivity : AppCompatActivity() {
     private lateinit var b: ActivityAlertBinding
     private lateinit var prefs: Prefs
     private var autoCalled = false
+    private var manualOpened = false
 
     private val permissionLauncher =
         registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) {
@@ -50,6 +52,8 @@ class AlertActivity : AppCompatActivity() {
         b.btnSendNow.setOnClickListener { AlertService.sendNow(this) }
         b.btnCall.setOnClickListener { Phone.call112(this) }
         b.btnClose.setOnClickListener { finish() }
+        b.btnManual112.setOnClickListener { (AlertBus.state.value as? AlertState.ManualSend)?.let { openSmsApp(listOf(Phone.EMERGENCY_NUMBER), it.message112) } }
+        b.btnManualContacts.setOnClickListener { (AlertBus.state.value as? AlertState.ManualSend)?.let { openSmsApp(it.contactPhones, it.messageContacts) } }
         b.btnSettings.setOnClickListener {
             androidx.appcompat.app.AlertDialog.Builder(this)
                 .setTitle(R.string.restricted_title)
@@ -76,6 +80,7 @@ class AlertActivity : AppCompatActivity() {
             return // just observe the running alert
         }
         autoCalled = false
+        manualOpened = false
         if (Perms.sms(this) && Perms.location(this)) {
             startAlert()
         } else {
@@ -88,10 +93,6 @@ class AlertActivity : AppCompatActivity() {
         val source = intent?.getStringExtra(EXTRA_SOURCE) ?: AlertService.SOURCE_MANUAL
         val note = intent?.getStringExtra(EXTRA_NOTE)
         val countdown = intent?.getIntExtra(EXTRA_COUNTDOWN, prefs.countdownSeconds) ?: prefs.countdownSeconds
-        if (!Perms.sms(this)) {
-            render(AlertState.Failed(type, AlertState.Reason.NO_SMS_PERMISSION))
-            return
-        }
         AlertService.start(this, type, source, note, countdown)
     }
 
@@ -101,6 +102,7 @@ class AlertActivity : AppCompatActivity() {
             is AlertState.Locating -> state.type
             is AlertState.Sending -> state.type
             is AlertState.Done -> state.type
+            is AlertState.ManualSend -> state.type
             is AlertState.Cancelled -> state.type
             is AlertState.Failed -> state.type
             AlertState.Idle -> EmergencyType.fromCode(prefs.lastTypeCode)
@@ -113,6 +115,7 @@ class AlertActivity : AppCompatActivity() {
             is AlertState.Locating -> state.source
             is AlertState.Sending -> state.source
             is AlertState.Done -> state.source
+            is AlertState.ManualSend -> state.source
             else -> null
         }
         b.txtSource.visibility = if (source == AlertService.SOURCE_CHECKIN) View.VISIBLE else View.GONE
@@ -123,6 +126,8 @@ class AlertActivity : AppCompatActivity() {
         b.txtCountdown.visibility = View.GONE
         b.btnSettings.visibility = View.GONE
         b.btnSendNow.visibility = View.VISIBLE
+        b.btnManual112.visibility = View.GONE
+        b.btnManualContacts.visibility = View.GONE
 
         when (state) {
             is AlertState.Countdown -> {
@@ -158,6 +163,25 @@ class AlertActivity : AppCompatActivity() {
                 b.groupDone.visibility = View.VISIBLE
                 maybeAutoCall()
             }
+            is AlertState.ManualSend -> {
+                b.txtTitle.text = getString(R.string.alert_title_manual)
+                val loc = state.location
+                val locText = when {
+                    loc == null -> getString(R.string.alert_location_none)
+                    state.stale -> getString(R.string.alert_location_stale, MessageBuilder.ageMinutes(loc))
+                    else -> getString(R.string.alert_location_found, loc.accuracy.toInt().coerceAtLeast(1))
+                }
+                b.txtStatus.text = getString(R.string.alert_manual_text) + "\n" + locText
+                b.btnManual112.visibility = if (state.message112 != null) View.VISIBLE else View.GONE
+                b.btnManualContacts.visibility = if (state.messageContacts != null && state.contactPhones.isNotEmpty()) View.VISIBLE else View.GONE
+                b.btnSettings.visibility = View.VISIBLE
+                b.groupDone.visibility = View.VISIBLE
+                if (!manualOpened) {
+                    manualOpened = true
+                    if (state.message112 != null) openSmsApp(listOf(Phone.EMERGENCY_NUMBER), state.message112)
+                    else if (state.messageContacts != null) openSmsApp(state.contactPhones, state.messageContacts)
+                }
+            }
             is AlertState.Cancelled -> {
                 b.txtTitle.text = getString(R.string.alert_title_cancelled)
                 b.txtStatus.text = ""
@@ -178,6 +202,20 @@ class AlertActivity : AppCompatActivity() {
                 b.txtStatus.text = recipientsLine()
                 b.groupDone.visibility = View.VISIBLE
             }
+        }
+    }
+
+    /** Opens the default messaging app with recipients and text pre-filled; the user taps send. */
+    private fun openSmsApp(phones: List<String>, text: String?) {
+        if (phones.isEmpty() || text.isNullOrBlank()) return
+        val intent = Intent(Intent.ACTION_SENDTO, Uri.parse("smsto:" + phones.joinToString(";")))
+            .putExtra("sms_body", text)
+        try {
+            startActivity(intent)
+        } catch (e: Exception) {
+            try {
+                startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("sms:" + phones.joinToString(";"))).putExtra("sms_body", text))
+            } catch (ignored: Exception) { }
         }
     }
 

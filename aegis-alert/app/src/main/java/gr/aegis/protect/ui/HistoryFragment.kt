@@ -123,6 +123,7 @@ class HistoryFragment : Fragment() {
                     SmsStatus.SENT -> ctx.getString(R.string.history_status_sent)
                     SmsStatus.DELIVERED -> ctx.getString(R.string.history_status_delivered)
                     SmsStatus.FAILED -> ctx.getString(R.string.history_status_failed) + (rc.error?.let { " ($it)" } ?: "")
+                    SmsStatus.MANUAL -> ctx.getString(R.string.history_status_manual)
                 }
                 "${rc.name} (${rc.phone}): $status"
             }
