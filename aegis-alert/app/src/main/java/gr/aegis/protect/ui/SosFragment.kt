@@ -49,7 +49,16 @@ class SosFragment : Fragment() {
     private var safeFinder: LocationFinder? = null
 
     private val permissionLauncher =
-        registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { refreshReadiness() }
+        registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { result ->
+            refreshReadiness()
+            // SMS asked but still denied without a rationale prompt: the OS "restricted settings"
+            // block for side-loaded apps, or a permanent denial. Explain how to unlock it.
+            if (result.containsKey(Manifest.permission.SEND_SMS) && !Perms.sms(requireContext()) &&
+                !shouldShowRequestPermissionRationale(Manifest.permission.SEND_SMS)
+            ) {
+                showRestrictedSmsHelp()
+            }
+        }
 
     private val backgroundLocationLauncher =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { }
@@ -242,6 +251,16 @@ class SosFragment : Fragment() {
         } catch (e: Exception) {
             try { startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)) } catch (ignored: Exception) { }
         }
+    }
+
+    private fun showRestrictedSmsHelp() {
+        val ctx = context ?: return
+        AlertDialog.Builder(ctx)
+            .setTitle(R.string.restricted_title)
+            .setMessage(R.string.restricted_text)
+            .setPositiveButton(R.string.restricted_open) { _, _ -> Phone.openAppSettings(ctx) }
+            .setNegativeButton(R.string.cancel, null)
+            .show()
     }
 
     private fun renderTestBanner() {

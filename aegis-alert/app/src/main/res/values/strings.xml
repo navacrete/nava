@@ -236,4 +236,7 @@
     <string name="permission_denied_sms">Χωρίς άδεια SMS η εφαρμογή δεν μπορεί να στείλει συναγερμό.</string>
     <string name="permission_background_location">Για το check-in όταν η οθόνη είναι κλειστή, επίλεξε «Να επιτρέπεται πάντα» στην τοποθεσία.</string>
     <string name="recipient_112">112</string>
+    <string name="restricted_title">Περιορισμένη άδεια SMS</string>
+    <string name="restricted_text">Το Android μπλοκάρει την άδεια SMS σε εφαρμογές που εγκαταστάθηκαν εκτός Play Store. Ξεκλείδωσέ την έτσι:\n\n1. Πάτα «Πληροφορίες εφαρμογής» παρακάτω.\n2. Πάτα τις τρεις τελείες ⋮ πάνω δεξιά.\n3. Επίλεξε «Να επιτρέπονται οι περιορισμένες ρυθμίσεις» (Allow restricted settings) και επιβεβαίωσε.\n4. Μπες στα Δικαιώματα → SMS → Να επιτρέπεται.\n\nΑν δεν βλέπεις την επιλογή στις τρεις τελείες, πάτα πρώτα «Παραχώρηση» στη γραμμή SMS και ξαναδοκίμασε.</string>
+    <string name="restricted_open">Πληροφορίες εφαρμογής</string>
 </resources>

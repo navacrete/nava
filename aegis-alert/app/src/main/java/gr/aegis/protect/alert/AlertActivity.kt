@@ -50,7 +50,14 @@ class AlertActivity : AppCompatActivity() {
         b.btnSendNow.setOnClickListener { AlertService.sendNow(this) }
         b.btnCall.setOnClickListener { Phone.call112(this) }
         b.btnClose.setOnClickListener { finish() }
-        b.btnSettings.setOnClickListener { Phone.openAppSettings(this) }
+        b.btnSettings.setOnClickListener {
+            androidx.appcompat.app.AlertDialog.Builder(this)
+                .setTitle(R.string.restricted_title)
+                .setMessage(R.string.restricted_text)
+                .setPositiveButton(R.string.restricted_open) { _, _ -> Phone.openAppSettings(this) }
+                .setNegativeButton(R.string.cancel, null)
+                .show()
+        }
 
         AlertBus.state.observe(this) { render(it) }
 

@@ -213,4 +213,7 @@
     <string name="permission_denied_sms">Without SMS permission the app cannot send an alert.</string>
     <string name="permission_background_location">For check-in while the screen is off, choose "Allow all the time" for location.</string>
     <string name="recipient_112">112</string>
+    <string name="restricted_title">Restricted SMS permission</string>
+    <string name="restricted_text">Android blocks the SMS permission for apps installed outside the Play Store. Unlock it like this:\n\n1. Tap "App info" below.\n2. Tap the three dots ⋮ at the top right.\n3. Choose "Allow restricted settings" and confirm.\n4. Go to Permissions → SMS → Allow.\n\nIf you do not see the option under the three dots, tap "Grant" on the SMS row first and try again.</string>
+    <string name="restricted_open">App info</string>
 </resources>
