@@ -29,6 +29,10 @@ import java.util.TimeZone;
 public class MainActivity extends Activity {
 
     private static final String PREFS = "kartamou";
+    /** Fixed values taken from the eVardia «Αποστολή από Camera» page of the company. */
+    private static final String BASE_URL = "https://evardia.gr";
+    private static final String SERIAL_NUMBER = "36122";
+    private static final String ETAIREIA_ID = "124";
     private SharedPreferences prefs;
     private TextView status, result, history;
     private Button inBtn, outBtn;
@@ -190,12 +194,12 @@ public class MainActivity extends Activity {
         setBusy(true);
         result.setTextColor(Color.WHITE);
         result.setText("Αποστολή…");
-        final String base = prefs.getString("base_url", "https://evardia.gr");
+        final String base = BASE_URL;
         final String user = prefs.getString("username", "");
         final String pass = prefs.getString("password", "");
         final String afm = prefs.getString("afm", "");
-        final String serial = prefs.getString("serial", "36122");
-        final String etaireia = prefs.getString("etaireia", "124");
+        final String serial = SERIAL_NUMBER;
+        final String etaireia = ETAIREIA_ID;
         new Thread(new Runnable() {
             @Override public void run() {
                 String out; boolean ok = false; String name = "";
@@ -267,9 +271,11 @@ public class MainActivity extends Activity {
         final EditText pass = field(box, "Κωδικός eVardia (σκάνερ)", prefs.getString("password", ""), InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD);
         final EditText afm = field(box, "ΑΦΜ σου (9 ψηφία)", prefs.getString("afm", ""), InputType.TYPE_CLASS_NUMBER);
         final EditText pin = field(box, "PIN εφαρμογής (προαιρετικό)", prefs.getString("pin", ""), InputType.TYPE_CLASS_NUMBER);
-        final EditText serial = field(box, "Αριθμός συσκευής σκάνερ (serialNumber)", prefs.getString("serial", "36122"), InputType.TYPE_CLASS_TEXT);
-        final EditText etaireia = field(box, "Κωδικός εταιρείας (etaireiaId)", prefs.getString("etaireia", "124"), InputType.TYPE_CLASS_NUMBER);
-        final EditText base = field(box, "Διεύθυνση eVardia", prefs.getString("base_url", "https://evardia.gr"), InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_URI);
+        TextView hint = new TextView(this);
+        hint.setText("Το ΑΦΜ πρέπει να είναι το δικό σου. Το χτύπημα καταχωρείται στο όνομά σου.");
+        hint.setTextSize(12);
+        hint.setPadding(0, dp(10), 0, 0);
+        box.addView(hint);
         ScrollView sv = new ScrollView(this);
         sv.addView(box);
         new AlertDialog.Builder(this)
@@ -282,9 +288,6 @@ public class MainActivity extends Activity {
                                 .putString("password", pass.getText().toString())
                                 .putString("afm", afm.getText().toString().replaceAll("\\D", ""))
                                 .putString("pin", pin.getText().toString().trim())
-                                .putString("serial", serial.getText().toString().trim())
-                                .putString("etaireia", etaireia.getText().toString().trim())
-                                .putString("base_url", base.getText().toString().trim())
                                 .apply();
                         EvardiaClient.forgetSession();
                         refreshStatus();
